@@ -87,4 +87,6 @@ var (
 	// ErrFeeCapTooLow is returned if the transaction fee cap is less than the
 	// the base fee of the block.
 	ErrFeeCapTooLow = errors.New("max fee per gas less than block base fee")
+
+	ErrMetaTrans = errors.New("ErrMetaTrans")
 )

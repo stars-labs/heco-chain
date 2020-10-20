@@ -139,11 +139,22 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 
+	//meta check
+	fullPayload := tx.data.Payload
+	if IsMetaTransaction(tx.data.Payload) {
+		 metaData ,err := DecodeMetaData(tx.data.Payload)
+		if err != nil {
+			return common.Address{}, err
+		}
+		tx.data.Payload = metaData.Payload
+	}
+
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
+	tx.data.Payload = fullPayload
 	return addr, nil
 }
 
@@ -477,6 +488,10 @@ func decodeSignature(sig []byte) (r, s, v *big.Int) {
 	s = new(big.Int).SetBytes(sig[32:64])
 	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
 	return r, s, v
+}
+
+func RecoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
+	return recoverPlain(sighash, R, S, Vb, homestead)
 }
 
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
