@@ -138,6 +138,10 @@ var hasherPool = sync.Pool{
 	},
 }
 
+func RlpHash(x interface{}) (h common.Hash) {
+	return rlpHash(x)
+}
+
 func rlpHash(x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)

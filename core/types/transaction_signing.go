@@ -80,11 +80,22 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 
+	//meta check
+	fullPayload := tx.data.Payload
+	if IsMetaTransaction(tx.data.Payload) {
+		 metaData ,err := DecodeMetaData(tx.data.Payload)
+		if err != nil {
+			return common.Address{}, err
+		}
+		tx.data.Payload = metaData.Payload
+	}
+
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
+	tx.data.Payload = fullPayload
 	return addr, nil
 }
 
@@ -217,6 +228,10 @@ func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 
 func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(fs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
+}
+
+func RecoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
+	return recoverPlain(sighash, R, S, Vb, homestead)
 }
 
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
