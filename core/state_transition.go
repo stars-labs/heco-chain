@@ -62,6 +62,7 @@ type StateTransition struct {
 	isMeta      bool
 	feeAddress  common.Address
 	metaPercent uint64
+	realPayload []byte
 }
 
 // Message represents a message sent to a contract.
@@ -296,6 +297,7 @@ func (st *StateTransition) metaTransactionCheck() error {
 		log.Debug("metaTransfer found, feeaddr:", addr.Hex()+" feePercent : "+strconv.FormatUint(metaData.FeePercent, 10))
 		st.isMeta = true
 		st.feeAddress = addr
+		st.realPayload = st.data
 		st.data = metaData.Payload
 		st.metaPercent = metaData.FeePercent
 		return nil
@@ -403,6 +405,7 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(100-st.metaPercent)), types.BIG100)
 		st.state.AddBalance(st.feeAddress, mgFeeAddrVal)
 		st.state.AddBalance(st.msg.From(), mgSelfVal)
+		st.data = st.realPayload
 	} else {
 		st.state.AddBalance(st.msg.From(), remaining)
 	}

@@ -14,7 +14,7 @@ import (
 var (
 	MetaPrefix           = "234d6574615472616e73616374696f6e23"
 	ErrInvalidFeePercent = errors.New("invalid FeePrecent")
-	ErrInvalidMetaData = errors.New("invalid metadata")
+	ErrInvalidMetaData   = errors.New("invalid metadata")
 	BIG100               = new(big.Int).SetUint64(100)
 	MetaPrefixBytesLen   = 17
 )
@@ -28,7 +28,7 @@ type MetaData struct {
 	Payload []byte   `json:"input"    gencodec:"required"`
 }
 
-func IsMetaTransaction(data []byte) bool{
+func IsMetaTransaction(data []byte) bool {
 	if len(data) >= MetaPrefixBytesLen {
 		prefix := hex.EncodeToString(data[:MetaPrefixBytesLen])
 		return prefix == MetaPrefix
@@ -36,7 +36,7 @@ func IsMetaTransaction(data []byte) bool{
 	return false
 }
 
-func DecodeMetaData(encodedData []byte) (*MetaData, error){
+func DecodeMetaData(encodedData []byte) (*MetaData, error) {
 	metaData := new(MetaData)
 	if len(encodedData) <= MetaPrefixBytesLen {
 		return metaData, ErrInvalidMetaData
@@ -65,7 +65,7 @@ func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uin
 	}
 	raw, _ := rlp.EncodeToBytes(data)
 	log.Debug("meta rlpencode" + hexutil.Encode(raw[:]))
-	hash := RlpHash(data)
+	hash := rlpHash(data)
 	log.Debug("meta rlpHash", hexutil.Encode(hash[:]))
 
 	var big8 = big.NewInt(8)
