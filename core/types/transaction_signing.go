@@ -80,22 +80,11 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 
-	//meta check
-	fullPayload := tx.data.Payload
-	if IsMetaTransaction(tx.data.Payload) {
-		 metaData ,err := DecodeMetaData(tx.data.Payload)
-		if err != nil {
-			return common.Address{}, err
-		}
-		tx.data.Payload = metaData.Payload
-	}
-
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
-	tx.data.Payload = fullPayload
 	return addr, nil
 }
 
@@ -164,13 +153,22 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
+
+	var data = tx.data.Payload
+	if IsMetaTransaction(tx.data.Payload) {
+		metaData , err := DecodeMetaData(tx.data.Payload)
+		if err == nil {
+			data = metaData.Payload
+		}
+	}
+
 	return rlpHash([]interface{}{
 		tx.data.AccountNonce,
 		tx.data.Price,
 		tx.data.GasLimit,
 		tx.data.Recipient,
 		tx.data.Amount,
-		tx.data.Payload,
+		data,
 		s.chainId, uint(0), uint(0),
 	})
 }
