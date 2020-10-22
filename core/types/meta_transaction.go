@@ -52,7 +52,7 @@ func DecodeMetaData(encodedData []byte) (*MetaData, error) {
 	return metaData, nil
 }
 
-func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uint64, to *common.Address, value *big.Int, payload []byte, from common.Address) (common.Address, error) {
+func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uint64, to *common.Address, value *big.Int, payload []byte, from common.Address, chainID *big.Int) (common.Address, error) {
 	var data interface{} = []interface{}{
 		nonce,
 		gasPrice,
@@ -69,7 +69,8 @@ func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uin
 	log.Debug("meta rlpHash", hexutil.Encode(hash[:]))
 
 	var big8 = big.NewInt(8)
-	V := new(big.Int).Sub(metadata.V, big.NewInt(114))
+	chainMul := new(big.Int).Mul(chainID, big.NewInt(2))
+	V := new(big.Int).Sub(metadata.V, chainMul)
 	V.Sub(V, big8)
 	addr, err := RecoverPlain(hash, metadata.R, metadata.S, V, true)
 	if err != nil {
