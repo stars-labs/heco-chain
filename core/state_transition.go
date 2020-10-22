@@ -244,7 +244,8 @@ func (st *StateTransition) metaTransactionCheck() error {
 			return err
 		}
 
-		addr, err := metaData.ParseMetaData(st.msg.Nonce(), st.msg.GasPrice(), st.msg.Gas(), st.msg.To(), st.msg.Value(), metaData.Payload, st.msg.From())
+		chainID := st.evm.ChainConfig().ChainID
+		addr, err := metaData.ParseMetaData(st.msg.Nonce(), st.msg.GasPrice(), st.msg.Gas(), st.msg.To(), st.msg.Value(), metaData.Payload, st.msg.From(), chainID)
 		if err != nil {
 			return err
 		}
