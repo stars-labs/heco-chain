@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1745,7 +1746,35 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return common.Hash{}, err
 	}
+	if  err := metaTransactionCheck(tx, s.b); err != nil {
+		return common.Hash{}, err
+	}
 	return SubmitTransaction(ctx, s.b, tx)
+}
+
+/**
+	check tx meta transaction format.
+ */
+func metaTransactionCheck(tx *types.Transaction,  b Backend,) error {
+	if types.IsMetaTransaction(tx.Data()) {
+		metaData, err := types.DecodeMetaData(tx.Data())
+		if err != nil {
+			return err
+		}
+
+		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
+		from, err := signer.Sender(tx)
+		if err != nil {
+			return err
+		}
+
+		addr, err := metaData.ParseMetaData(tx.Nonce(), tx.GasPrice(), tx.Gas(), tx.To(), tx.Value(), metaData.Payload, from, b.ChainConfig().ChainID)
+		if err != nil {
+			return err
+		}
+		log.Debug("metaTransfer found, feeaddr:", addr.Hex() + " feePercent : " + strconv.FormatUint(metaData.FeePercent, 10))
+	}
+	return nil
 }
 
 // Sign calculates an ECDSA signature for:

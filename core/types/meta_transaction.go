@@ -9,14 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
+	"strconv"
 )
 
 var (
-	MetaPrefix           = "234d6574615472616e73616374696f6e23"
-	ErrInvalidFeePercent = errors.New("invalid FeePrecent")
-	ErrInvalidMetaData   = errors.New("invalid metadata")
-	BIG100               = new(big.Int).SetUint64(100)
-	MetaPrefixBytesLen   = 17
+	MetaPrefix            = "234d6574615472616e73616374696f6e23"
+	ErrInvalidFeePercent  = errors.New("invalid FeePrecent, need 0-100")
+	ErrInvalidMetaDataLen = errors.New("invalid metadata length")
+	BIG100                = new(big.Int).SetUint64(100)
+	MetaPrefixBytesLen    = 17
+	ErrInvalidMetaSig     = errors.New("meta transaciont verify: invalid transaction v, r, s values")
 )
 
 type MetaData struct {
@@ -39,15 +41,15 @@ func IsMetaTransaction(data []byte) bool {
 func DecodeMetaData(encodedData []byte) (*MetaData, error) {
 	metaData := new(MetaData)
 	if len(encodedData) <= MetaPrefixBytesLen {
-		return metaData, ErrInvalidMetaData
+		return metaData, ErrInvalidMetaDataLen
 	}
 	encodedData = encodedData[MetaPrefixBytesLen:]
 	if err := rlp.DecodeBytes(encodedData, metaData); err != nil {
 		fmt.Println(err)
 		return metaData, err
 	}
-	if metaData.FeePercent > 100 {
-		return metaData, ErrInvalidFeePercent
+	if metaData.FeePercent > BIG100.Uint64() {
+		return metaData, errors.New("invalid meta transaction FeePercent need 0-100. Found:" + strconv.FormatUint(metaData.FeePercent, 10))
 	}
 	return metaData, nil
 }
@@ -74,7 +76,7 @@ func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uin
 	V.Sub(V, big8)
 	addr, err := RecoverPlain(hash, metadata.R, metadata.S, V, true)
 	if err != nil {
-		return common.HexToAddress(""), err
+		return common.HexToAddress(""), ErrInvalidMetaSig
 	}
 	return addr, nil
 }
