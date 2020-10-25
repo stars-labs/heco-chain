@@ -235,13 +235,13 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
+//check if tx is meta tx
 func (st *StateTransition) metaTransactionCheck() error {
 	if types.IsMetaTransaction(st.data) {
-		metaData, err := types.DecodeMetaData(st.data)
+		metaData, err := types.DecodeMetaData(st.data, st.evm.BlockNumber)
 		if err != nil {
 			return err
 		}
-
 		chainID := st.evm.ChainConfig().ChainID
 		addr, err := metaData.ParseMetaData(st.msg.Nonce(), st.msg.GasPrice(), st.msg.Gas(), st.msg.To(), st.msg.Value(), metaData.Payload, st.msg.From(), chainID)
 		if err != nil {

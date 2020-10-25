@@ -1644,7 +1644,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
  */
 func metaTransactionCheck(tx *types.Transaction,  b Backend,) error {
 	if types.IsMetaTransaction(tx.Data()) {
-		metaData, err := types.DecodeMetaData(tx.Data())
+		metaData, err := types.DecodeMetaData(tx.Data(), b.CurrentBlock().Number())
 		if err != nil {
 			return err
 		}
