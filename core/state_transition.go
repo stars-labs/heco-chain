@@ -61,8 +61,8 @@ type StateTransition struct {
 	evm         *vm.EVM
 	isMeta      bool
 	feeAddress  common.Address
-	metaPercent uint64
-	realPayload []byte
+	feePercent uint64 //meta transaction fee percent
+	realPayload []byte //the real transaction fee percent
 }
 
 // Message represents a message sent to a contract.
@@ -217,8 +217,8 @@ func (st *StateTransition) buyGas() error {
 func (st *StateTransition) buyGasMeta() error {
 
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(st.metaPercent)), types.BIG100)
-	mgSelfVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(100-st.metaPercent)), types.BIG100)
+	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(st.feePercent)), types.BIG10000) //value deduct from fee address
+	mgSelfVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(types.BIG10000.Uint64() - st.feePercent)), types.BIG10000) //value deduct from sender address
 
 	if st.state.GetBalance(st.feeAddress).Cmp(mgFeeAddrVal) < 0 || st.state.GetBalance(st.msg.From()).Cmp(mgSelfVal) < 0 {
 		return ErrInsufficientFunds
@@ -300,7 +300,7 @@ func (st *StateTransition) metaTransactionCheck() error {
 		st.feeAddress = addr
 		st.realPayload = st.data
 		st.data = metaData.Payload
-		st.metaPercent = metaData.FeePercent
+		st.feePercent = metaData.FeePercent
 		return nil
 	}
 	return nil
@@ -402,8 +402,8 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 
 	if st.isMeta {
-		mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(st.metaPercent)), types.BIG100)
-		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(100-st.metaPercent)), types.BIG100)
+		mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(st.feePercent)), types.BIG10000)
+		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(types.BIG10000.Uint64() - st.feePercent)), types.BIG10000)
 		st.state.AddBalance(st.feeAddress, mgFeeAddrVal)
 		st.state.AddBalance(st.msg.From(), mgSelfVal)
 		st.data = st.realPayload
