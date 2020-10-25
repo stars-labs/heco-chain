@@ -14,15 +14,15 @@ import (
 
 var (
 	MetaPrefix           = "234d6574615472616e73616374696f6e23"
-	ErrInvalidFeePercent = errors.New("invalid FeePrecent, need 0-100")
 	ErrInvalidMetaDataLen = errors.New("invalid metadata length")
-	BIG100               = new(big.Int).SetUint64(100)
+	BIG10000               = new(big.Int).SetUint64(10000)
 	MetaPrefixBytesLen   = 17
 	ErrInvalidMetaSig    = errors.New("meta transaciont verify: invalid transaction v, r, s values")
 )
 
 type MetaData struct {
-	FeePercent uint64 `json:"feeprecent" gencodec:"required"`
+	//fee cover percentage, 0-10000, 0: means no cover. 1: means cover 0.01%, 10000 means full cover
+	FeePercent uint64 `json:"feepercent" gencodec:"required"`
 	// Signature values
 	V       *big.Int `json:"v" gencodec:"required"`
 	R       *big.Int `json:"r" gencodec:"required"`
@@ -48,8 +48,8 @@ func DecodeMetaData(encodedData []byte) (*MetaData, error){
 		fmt.Println(err)
 		return metaData, err
 	}
-	if metaData.FeePercent > BIG100.Uint64() {
-		return metaData, errors.New("invalid meta transaction FeePercent need 0-100. Found:" + strconv.FormatUint(metaData.FeePercent, 10))
+	if metaData.FeePercent > BIG10000.Uint64() {
+		return metaData, errors.New("invalid meta transaction FeePercent need 0-10000. Found:" + strconv.FormatUint(metaData.FeePercent, 10))
 	}
 	return metaData, nil
 }
