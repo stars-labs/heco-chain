@@ -68,6 +68,7 @@ func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uin
 		from,
 		metadata.FeePercent,
 		metadata.BlockNumLimit,
+		chainID,
 	}
 	raw, _ := rlp.EncodeToBytes(data)
 	log.Debug("meta rlpencode" + hexutil.Encode(raw[:]))
