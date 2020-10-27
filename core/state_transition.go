@@ -24,6 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	cmath "github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
@@ -61,7 +62,7 @@ type StateTransition struct {
 	evm         *vm.EVM
 	isMeta      bool
 	feeAddress  common.Address
-	feePercent uint64 //meta transaction fee percent
+	feePercent  uint64 //meta transaction fee percent
 	realPayload []byte //the real transaction fee percent
 }
 
@@ -217,8 +218,8 @@ func (st *StateTransition) buyGas() error {
 func (st *StateTransition) buyGasMeta() error {
 
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(st.feePercent)), types.BIG10000) //value deduct from fee address
-	mgSelfVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(types.BIG10000.Uint64() - st.feePercent)), types.BIG10000) //value deduct from sender address
+	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(st.feePercent)), types.BIG10000)                      //value deduct from fee address
+	mgSelfVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(types.BIG10000.Uint64()-st.feePercent)), types.BIG10000) //value deduct from sender address
 
 	if st.state.GetBalance(st.feeAddress).Cmp(mgFeeAddrVal) < 0 || st.state.GetBalance(st.msg.From()).Cmp(mgSelfVal) < 0 {
 		return ErrInsufficientFunds
@@ -286,7 +287,7 @@ func (st *StateTransition) preCheck() error {
 //check if tx is meta tx
 func (st *StateTransition) metaTransactionCheck() error {
 	if types.IsMetaTransaction(st.data) {
-		metaData, err := types.DecodeMetaData(st.data, st.evm.BlockNumber)
+		metaData, err := types.DecodeMetaData(st.data, st.evm.Context.BlockNumber)
 		if err != nil {
 			return err
 		}
@@ -381,7 +382,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
 		effectiveTip = cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 	}
-	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
+	tip := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip)
+	if st.evm.ChainConfig().Congress != nil {
+		st.state.AddBalance(consensus.FeeRecoder, tip)
+	} else {
+		st.state.AddBalance(st.evm.Context.Coinbase, tip)
+	}
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),
@@ -403,7 +409,7 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 
 	if st.isMeta {
 		mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(st.feePercent)), types.BIG10000)
-		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(types.BIG10000.Uint64() - st.feePercent)), types.BIG10000)
+		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(types.BIG10000.Uint64()-st.feePercent)), types.BIG10000)
 		st.state.AddBalance(st.feeAddress, mgFeeAddrVal)
 		st.state.AddBalance(st.msg.From(), mgSelfVal)
 		st.data = st.realPayload
