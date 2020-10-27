@@ -33,7 +33,7 @@ posa算法基于clique算法修改而来，增加了系统合约实现了Validat
 
 3. Punish合约: 主要由系统进行调用，惩罚miss block的validator
 
-4. HSCT Token合约：hsct erc20合约，预挖2500给设置的预挖地址。token数量上限为1亿。会自动根据比例自动计算相应的token奖励给validator
+4. HSCT Token合约：hsct erc20合约，预挖2500万给设置的预挖地址。token数量上限为1亿。会自动根据比例自动计算相应的token奖励给validator
 
 ## 用户成为validator流程
 
