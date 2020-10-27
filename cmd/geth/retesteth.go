@@ -229,13 +229,15 @@ func (e *NoRewardEngine) accumulateRewards(config *params.ChainConfig, state *st
 }
 
 func (e *NoRewardEngine) Finalize(chain consensus.ChainHeaderReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header) {
+	uncles []*types.Header) error {
 	if e.rewardsOn {
 		e.inner.Finalize(chain, header, statedb, txs, uncles)
 	} else {
 		e.accumulateRewards(chain.Config(), statedb, header, uncles)
 		header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	}
+
+	return nil
 }
 
 func (e *NoRewardEngine) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
