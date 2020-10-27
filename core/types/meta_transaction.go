@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
@@ -13,15 +12,17 @@ import (
 )
 
 var (
-	MetaPrefix            = "234d6574615472616e73616374696f6e23"
+	ErrInvalidMetaSig    = errors.New("meta transaciont verify: invalid transaction v, r, s values")
 	ErrInvalidMetaDataLen = errors.New("invalid metadata length")
-	BIG10000              = new(big.Int).SetUint64(10000)
-	MetaPrefixBytesLen    = 17
-	ErrInvalidMetaSig     = errors.New("meta transaciont verify: invalid transaction v, r, s values")
+
+	MetaPrefix           = "234d6574615472616e73616374696f6e23"
+	BIG10000               = new(big.Int).SetUint64(10000)
+	MetaPrefixBytesLen   = 17
 )
 
 type MetaData struct {
 	//fee cover percentage, 0-10000, 0: means no cover. 1: means cover 0.01%, 10000 means full cover
+	BlockNumLimit uint64 `json:"blockNumLimit" gencodec:"required"`
 	FeePercent uint64 `json:"feepercent" gencodec:"required"`
 	// Signature values
 	V       *big.Int `json:"v" gencodec:"required"`
@@ -30,7 +31,7 @@ type MetaData struct {
 	Payload []byte   `json:"input"    gencodec:"required"`
 }
 
-func IsMetaTransaction(data []byte) bool {
+func IsMetaTransaction(data []byte) bool{
 	if len(data) >= MetaPrefixBytesLen {
 		prefix := hex.EncodeToString(data[:MetaPrefixBytesLen])
 		return prefix == MetaPrefix
@@ -38,18 +39,20 @@ func IsMetaTransaction(data []byte) bool {
 	return false
 }
 
-func DecodeMetaData(encodedData []byte) (*MetaData, error) {
+func DecodeMetaData(encodedData []byte, blockNumber *big.Int) (*MetaData, error){
 	metaData := new(MetaData)
 	if len(encodedData) <= MetaPrefixBytesLen {
 		return metaData, ErrInvalidMetaDataLen
 	}
 	encodedData = encodedData[MetaPrefixBytesLen:]
 	if err := rlp.DecodeBytes(encodedData, metaData); err != nil {
-		fmt.Println(err)
 		return metaData, err
 	}
 	if metaData.FeePercent > BIG10000.Uint64() {
 		return metaData, errors.New("invalid meta transaction FeePercent need 0-10000. Found:" + strconv.FormatUint(metaData.FeePercent, 10))
+	}
+	if metaData.BlockNumLimit < blockNumber.Uint64() {
+		return metaData, errors.New("expired meta transaction. current:" + strconv.FormatUint(blockNumber.Uint64(), 10) +  ", need execute before " + strconv.FormatUint(metaData.BlockNumLimit, 10))
 	}
 	return metaData, nil
 }
@@ -64,10 +67,12 @@ func (metadata *MetaData) ParseMetaData(nonce uint64, gasPrice *big.Int, gas uin
 		payload,
 		from,
 		metadata.FeePercent,
+		metadata.BlockNumLimit,
+		chainID,
 	}
 	raw, _ := rlp.EncodeToBytes(data)
 	log.Debug("meta rlpencode" + hexutil.Encode(raw[:]))
-	hash := rlpHash(data)
+	hash := RlpHash(data)
 	log.Debug("meta rlpHash", hexutil.Encode(hash[:]))
 
 	var big8 = big.NewInt(8)
