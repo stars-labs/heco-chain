@@ -112,7 +112,7 @@ func (s *Snapshot) copy() *Snapshot {
 
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
-func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader) (*Snapshot, error) {
+func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return s, nil
@@ -153,7 +153,24 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 
 		// update validators at the first block at epoch
 		if number > 0 && number%s.config.Epoch == 1 {
-			checkpointHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+			var checkpointHeader *types.Header
+			// try to find checkpoint header in parents
+			dstNumber, dstHash := header.Number.Uint64()-1, header.ParentHash
+			for i := len(parents) - 1; i >= 0; i-- {
+				if parents[i].Number.Uint64() == dstNumber && parents[i].Hash() == dstHash {
+					checkpointHeader = parents[i]
+					break
+				}
+
+				if parents[i].Number.Uint64() < dstNumber {
+					break
+				}
+			}
+
+			if checkpointHeader == nil {
+				checkpointHeader = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+			}
+
 			if checkpointHeader == nil {
 				return nil, consensus.ErrUnknownAncestor
 			}
