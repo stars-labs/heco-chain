@@ -1633,16 +1633,16 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	if  err := metaTransactionCheck(tx, s.b); err != nil {
+	if err := metaTransactionCheck(tx, s.b); err != nil {
 		return common.Hash{}, err
 	}
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
 /**
-	check tx meta transaction format.
- */
-func metaTransactionCheck(tx *types.Transaction,  b Backend,) error {
+check tx meta transaction format.
+*/
+func metaTransactionCheck(tx *types.Transaction, b Backend) error {
 	if types.IsMetaTransaction(tx.Data()) {
 		metaData, err := types.DecodeMetaData(tx.Data(), b.CurrentBlock().Number())
 		if err != nil {
@@ -1659,7 +1659,7 @@ func metaTransactionCheck(tx *types.Transaction,  b Backend,) error {
 		if err != nil {
 			return err
 		}
-		log.Debug("metaTransfer found, feeaddr:", addr.Hex() + " feePercent : " + strconv.FormatUint(metaData.FeePercent, 10))
+		log.Debug("metaTransfer found, feeaddr:", addr.Hex()+" feePercent : "+strconv.FormatUint(metaData.FeePercent, 10))
 	}
 	return nil
 }
@@ -1925,6 +1925,27 @@ func (api *PrivateDebugAPI) ChaindbCompact() error {
 		}
 	}
 	return nil
+}
+
+//TODO warning delete this when online
+func (api *PrivateDebugAPI) GetPoolNonce(ctx context.Context, address string) (*hexutil.Uint64, error) {
+	nonce, err := api.b.GetPoolNonce(ctx, common.HexToAddress(address))
+	return (*hexutil.Uint64)(&nonce), err
+}
+
+//TODO warning delete this when online
+func (api *PrivateDebugAPI) SendTransactions(ctx context.Context, signedTxs []*types.Transaction) ([]string, error) {
+	var txsHash = make([]string, len(signedTxs))
+	if len(signedTxs) == 0 {
+		return txsHash, fmt.Errorf("no txs received")
+	}
+	for _, tx := range signedTxs {
+		err := api.b.SendTx(ctx, tx)
+		if err != nil {
+			log.Error("batch send error", "err", err)
+		}
+	}
+	return txsHash, nil
 }
 
 // SetHead rewinds the head of the blockchain to a previous block.
