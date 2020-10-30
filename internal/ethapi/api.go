@@ -1633,7 +1633,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	if err := metaTransactionCheck(tx, s.b); err != nil {
+	if err := metaTransactionCheck(ctx, tx, s.b); err != nil {
 		return common.Hash{}, err
 	}
 	return SubmitTransaction(ctx, s.b, tx)
@@ -1642,7 +1642,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 /**
 check tx meta transaction format.
 */
-func metaTransactionCheck(tx *types.Transaction, b Backend) error {
+func metaTransactionCheck(ctx context.Context, tx *types.Transaction, b Backend) error {
 	if types.IsMetaTransaction(tx.Data()) {
 		metaData, err := types.DecodeMetaData(tx.Data(), b.CurrentBlock().Number())
 		if err != nil {
@@ -1659,10 +1659,29 @@ func metaTransactionCheck(tx *types.Transaction, b Backend) error {
 		if err != nil {
 			return err
 		}
+		if err := metaFeecheck(ctx, tx, metaData, addr, b); err != nil {
+			return err
+		}
 		log.Debug("metaTransfer found, feeaddr:", addr.Hex()+" feePercent : "+strconv.FormatUint(metaData.FeePercent, 10))
 	}
 	return nil
 }
+
+func metaFeecheck(ctx context.Context, tx *types.Transaction, metaData *types.MetaData, feeAddr common.Address, b Backend) error {
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(tx.Gas()), tx.GasPrice())
+	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(metaData.FeePercent)), types.BIG10000) //value will deduct from fee address
+	state, _, err := b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(b.CurrentBlock().Number().Int64()))
+	if state == nil || err != nil {
+		return err
+	}
+	feeAddrBalance := state.GetBalance(feeAddr)
+
+	if feeAddrBalance.Cmp(mgFeeAddrVal) < 0 {
+		return core.ErrInsufficientMetaFunds
+	}
+	return nil
+}
+
 
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
