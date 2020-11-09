@@ -11,13 +11,13 @@ posa算法基于clique算法修改而来，增加了系统合约实现了Validat
 1. 在第一个块时，传递参数(Admin、Premint)初始化系统合约
 
 2. 在块周期结束时(`number%Epoch==0`)时:
-    * 通过系统合约getTopValidators获取当前的排名靠前的TopValidators，并将其填入extraData字段
-    * 调用系统合约updateActiveValidatorSet更新合约当前激活的Validators列表
-    * 调用系统合约decreaseMissedBlocksCounter尝试削减validator的出错次数，避免因出错次数一直累加而被意外移除出validator列表
+    * 通过系统合约`getTopValidators`获取当前的排名靠前的TopValidators，并将其填入extraData字段
+    * 调用系统合约`updateActiveValidatorSet`更新合约当前激活的Validators列表
+    * 调用系统合约`decreaseMissedBlocksCounter`尝试削减validator的出错次数，避免因出错次数一直累加而被意外移除出validator列表
 
 3. 仅在块周期第一个块时更换为新的validator列表，此时新的validator可以出块，合约中validator列表变化必须在下一块周期才会生效。
 
-4. 当有out of turn的块出现时，且本应出块的validator最近未出块，则validator调用系统合约punish接口对validator进行惩罚。如果validator出错次数达到punishThreshold(默认10)，则会没收当前收益。当达到removeThreshold(默认30)时，则踢出validator列表，状态设置为Jailed。
+4. 当有out of turn的块出现时，且本应出块的validator最近未出块，则validator调用系统合约`punish`接口对validator进行惩罚。如果validator出错次数达到punishThreshold(默认10)，则会没收当前收益。当达到removeThreshold(默认30)时，则踢出validator列表，状态设置为Jailed。
 
 
 合约功能:
@@ -79,15 +79,9 @@ posa算法基于clique算法修改而来，增加了系统合约实现了Validat
 
 - StakingLockPeriod(100): validator申请赎回质押hb操作后到实际可以赎回质押hb的块间隔。
 
-- RestakingLockPeriodUnstaked(200): 当validator赎回质押的hb退出validator列表后，其想在次加入需要等待的块间隔(退出块为赎回操作时的块号)。
-
-- RestakingLockPeriodJailed(300): 
-    - 当validator因为掉线等原因被系统惩罚移除出validator列表后，其想再次加入需要等待的块间隔(退出块为移除操作时的块号)
-    - 该块间隔应该比RestakingLockPeriodUnstaked设置值大
-
 - WithdrawProfitPeriod(100): validators连续赎回收益之间最小的间隔块大小。系统slash validator时，会将其当前未赎回的收益清零，均分给其他的validators。
 
-- MinialStakingCoin(32 ether): 成为validator候选的最小质押hb数量
+- MinimalStakingCoin(32 ether): 成为validator候选的最小质押hb数量
 
 
 Punish合约：
@@ -136,7 +130,7 @@ event LogCreateProposal(
 
 #### voteProposal
 
-当前validator对提案进行投票。当同意票数炒作半数时，则提案通过
+当前validator对提案进行投票。当同意票数超过半数时，则提案通过
 
 ```solidity
 # id: 提案id
@@ -178,11 +172,11 @@ validator/admin调用该合约进行质押、赎回押金、赎回收益等相�
 # 实际比例hsct数量=块手续费*multi_/divisor_
 changeDec(uint256 multi_, uint256 divisor_)
 
-
 # 交易日志
-# multi_: 乘数
-# divisor_: 除数
-event LogChangeDec(uint256 newMulti, uint256 newDivisor);
+# newMulti: 乘数
+# newDivisor: 除数
+# time: 更新时间
+event LogChangeDec(uint256 newMulti, uint256 newDivisor, uint256 time);
 
 ```
 
@@ -220,7 +214,12 @@ event LogCreateValidator(
 # 追加staking
 # val: validator地址
 # addAmount: 追加的质押金额
-event LogAddStake(address indexed val, uint256 addAmount);
+# time: 交易时间
+event LogAddStake(address indexed val, uint256 addAmount, uint256 time);
+# 退出validator后，重新质押
+# val: validator地址
+# restake: 质押金额
+# time: 交易时间
 # 成为top validator
 # val: validator地址
 # time: 交易时间
@@ -256,21 +255,7 @@ event LogEditValidator(
 
 
 
-# 重新质押，只有在validator被系统jailed后者自己赎回押金退出了validator列表后才能调用该方法
-restake()
-# 交易日志
-# val: validator地址
-# staking: 质押金额
-# time: 交易时间
-event LogRestake(address indexed val, uint256 staking, uint256 time);
-# 成为top validator
-# val: validator地址
-# time: 交易时间
-event LogAddToTopValidators(address indexed val, uint256 time);
-
-
-
-# validator申请退出validator列表
+# validator申请退出validator列表(退出列表/被系统移除后需要重新create proposal才能再次成为validator)
 # 注意：押金不会马上发送给validator，需要经过系统设定的时间(100个块)后调用withdrawStaking()才可以赎回押金
 unstake()
 # 交易日志
@@ -298,11 +283,13 @@ withdrawProfits(address validator)
 # fee: 收益人的地址
 # hb: hb收益金额
 # hsct: hsct收益金额
+# time: 交易时间
 event LogWithdrawProfits(
     address indexed val,
     address indexed fee,
     uint256 hb,
-    uint256 hsct
+    uint256 hsct,
+    uint256 time
 );
 
 
