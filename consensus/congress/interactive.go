@@ -43,8 +43,6 @@ func getInteractiveABI() map[string]abi.ABI {
 	abiMap[punishContractName] = tmpABI
 	tmpABI, _ = abi.JSON(strings.NewReader(proposalInteractiveABI))
 	abiMap[proposalContractName] = tmpABI
-	tmpABI, _ = abi.JSON(strings.NewReader(tokenInteractiveABI))
-	abiMap[hsctTokenContractName] = tmpABI
 
 	return abiMap
 }
