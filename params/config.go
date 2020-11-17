@@ -355,10 +355,6 @@ func (c *CliqueConfig) String() string {
 type CongressConfig struct {
 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-
-	// congress special config
-	Admin   common.Address `json:"admin"`   // Admin address who can change rate of block reward of hsct token.
-	Premint common.Address `json:"premint"` // Premint address who can get preminted hsct token.
 }
 
 // String implements the stringer interface, returning the consensus engine details.

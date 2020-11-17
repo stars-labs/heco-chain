@@ -4,18 +4,18 @@
 
 ## 共识算法介绍
 
-posa算法基于clique算法修改而来，增加了系统合约实现了Validator质押/准入的相关功能，可以对Validator进行激励(获得手续费和hsct token奖励)和惩罚(没收当前收益、移除出validator列表)。
+posa算法基于clique算法修改而来，增加了系统合约实现了Validator质押/准入的相关功能，可以对Validator进行激励(按质押比例获得手续费)和惩罚(没收当前收益、移除出validator列表)。
 
 系统功能(golang共识代码功能): 
 
-1. 在第一个块时，传递参数(Admin、Premint)初始化系统合约
+1. 在第一个块时，初始化系统合约
 
 2. 在块周期结束时(`number%Epoch==0`)时:
     * 通过系统合约`getTopValidators`获取当前的排名靠前的TopValidators，并将其填入extraData字段
     * 调用系统合约`updateActiveValidatorSet`更新合约当前激活的Validators列表
     * 调用系统合约`decreaseMissedBlocksCounter`尝试削减validator的出错次数，避免因出错次数一直累加而被意外移除出validator列表
 
-3. 仅在块周期第一个块时更换为新的validator列表，此时新的validator可以出块，合约中validator列表变化必须在下一块周期才会生效。
+3. 生产块周期第一个块时更换为新的validator列表，此时新的validator可以出块，合约中validator列表变化必须在下一块周期才会生效。
 
 4. 当有out of turn的块出现时，且本应出块的validator最近未出块，则validator调用系统合约`punish`接口对validator进行惩罚。如果validator出错次数达到punishThreshold(默认10)，则会没收当前收益。当达到removeThreshold(默认30)时，则踢出validator列表，状态设置为Jailed。
 
@@ -23,9 +23,10 @@ posa算法基于clique算法修改而来，增加了系统合约实现了Validat
 合约功能:
 
 1. Validator合约：
-    * 用户质押/追加HB，成为validator
-    * 用户赎回HB，退出validator列表
-    * 赎回出块收益
+    * 通过了proposal的用户成为validator
+    * 任意人可以对validator stake
+    * staker可以赎回质押的hb
+    * validator设置的feeAddr可以赎回收益
 
 2. Proposal合约：
     * 用户创建提案，申请成为validator
@@ -33,15 +34,15 @@ posa算法基于clique算法修改而来，增加了系统合约实现了Validat
 
 3. Punish合约: 主要由系统进行调用，惩罚miss block的validator
 
-4. HSCT Token合约：hsct erc20合约，预挖2500万给设置的预挖地址。token数量上限为1亿。会自动根据比例自动计算相应的token奖励给validator
-
 ## 用户成为validator流程
 
 1. 调用Proposal合约`createProposal`接口创建提案，提案ID在事件中可以得到
 
 2. Validator对该合约进行投票
 
-3. 投票通过后，用户调用Validators合约`stake`接口，质押最少32个HB，成为Validator候选。如果质押金额排名前21，则将其加入到top validator list。
+3. 投票通过后，用户调用Validators合约`createOrEditValidator`接口，创建validator。
+
+4. 任意用户可以对validator进行stake操作，当validator 总押金排名在前21时，则其进入top validators列表。
 
 4. 系统在block epoch时，调用Validators合约获取top validator list，并将其写入extra data，并在下一个块更新validator列表，此时新validator可以出块。
 
@@ -61,15 +62,10 @@ posa算法基于clique算法修改而来，增加了系统合约实现了Validat
 
 - Epoch: 更新validators的块数间隔，系统在块周期第一个块更新validators列表
 
-- Admin: validators合约管理员地址，可以更新出块奖励hsct的兑换比例
-
-- Premint: hsct预挖矿地址，会自动预挖2500万hsct token至该地址
-
 - 账户设置，请在创世块中设置系统合约相应的代码(**deployedCode**):
     - Validators(0x000000000000000000000000000000000000f000): 验证者合约
     - Punish(0x000000000000000000000000000000000000f001): 惩罚合约
     - Proposal(0x000000000000000000000000000000000000f002): 提案合约
-    - HSCTToken(0x000000000000000000000000000000000000f003): hsct token合约
 
 ### 系统合约参数
 
@@ -161,71 +157,33 @@ event LogRejectProposal(
 
 ### Validators
 
-validator/admin调用该合约进行质押、赎回押金、赎回收益等相关操作.
+validator调用该合约进行质押、赎回押金、赎回收益等相关操作.
 
 管理员调用接口:
-
-```solidity
-# 管理员更新hsct出块奖励兑换比例
-# multi_: 乘数
-# divisor_: 除数
-# 实际比例hsct数量=块手续费*multi_/divisor_
-changeDec(uint256 multi_, uint256 divisor_)
-
-# 交易日志
-# newMulti: 乘数
-# newDivisor: 除数
-# time: 更新时间
-event LogChangeDec(uint256 newMulti, uint256 newDivisor, uint256 time);
-
-```
 
 validator调用接口:
 
 ```solidity
-# validator质押/追加hb
-# feeAddr: 受益地址
-# moniker: 名称，长度不大于70
-# identity: 身份信息，长度不大于3000
-# website: 网站信息，长度不大于140
-# email: 邮件信息，长度不大于140
-# details: 详细信息，长度不大于280
-stake(
-    address payable feeAddr,
-    string calldata moniker,
-    string calldata identity,
-    string calldata website,
-    string calldata email,
-    string calldata details
-)
+# 用户向validator质押押金
+stake(address validator)
 
 # 交易日志
 # 第一次成为validator
+# staker: 质押的用户
 # val: validator地址
-# fee: 受益人地址
 # staking: 质押的hb数量
 # time: 交易时间
-event LogCreateValidator(
+event LogStake(
+    address indexed staker,
     address indexed val,
-    address indexed fee,
     uint256 staking,
     uint256 time
 );
-# 追加staking
-# val: validator地址
-# addAmount: 追加的质押金额
-# time: 交易时间
-event LogAddStake(address indexed val, uint256 addAmount, uint256 time);
-# 退出validator后，重新质押
-# val: validator地址
-# restake: 质押金额
-# time: 交易时间
+
 # 成为top validator
 # val: validator地址
 # time: 交易时间
 event LogAddToTopValidators(address indexed val, uint256 time);
-
-
 
 
 # 编辑validator信息
@@ -235,7 +193,7 @@ event LogAddToTopValidators(address indexed val, uint256 time);
 # website: 网站信息，长度不大于140
 # email: 邮件信息，长度不大于140
 # details: 详细信息，长度不大于280
-editValidator(
+createOrEditValidator(
     address payable feeAddr,
     string calldata moniker,
     string calldata identity,
@@ -243,7 +201,15 @@ editValidator(
     string calldata email,
     string calldata details
 )
+
 # 交易日志
+# 第一次创建validator信息
+event LogCreateValidator(
+    address indexed val,
+    address indexed fee,
+    uint256 time
+);
+# 编辑validator信息
 # val: validator地址
 # fee: 更新后的受益地址
 # time: 更新时间
@@ -255,40 +221,51 @@ event LogEditValidator(
 
 
 
-# validator申请退出validator列表(退出列表/被系统移除后需要重新create proposal才能再次成为validator)
-# 注意：押金不会马上发送给validator，需要经过系统设定的时间(100个块)后调用withdrawStaking()才可以赎回押金
-unstake()
+# 质押的用户申请赎回资金(当对应的validator总质押的金额小于设置的最小值时，其自动被系统移除列表，且需要重新create proposal才能再次成为validator)
+# 注意：押金不会马上发送给用户，需要经过系统设定的时间(100个块)后调用withdrawStaking()才可以赎回押金
+unstake(address validator)
 # 交易日志
+# staker: 赎回押金的用户
 # val: validator地址
+# amount: 押金金额
 # time: 交易时间
-event LogUnstake(address indexed val, uint256 time);
+event LogUnstake(
+    address indexed staker,
+    address indexed val,
+    uint256 amount,
+    uint256 time
+);
 
 
 
 # 赎回押金
-withdrawStaking()
+withdrawStaking(address validator)
 # 交易日志
+# staker: 赎回押金的用户
 # val: validator地址
 # amount: 押金金额
 # time: 交易时间
-event LogWithdrawStaking(address indexed val, uint256 amount, uint256 time);
+event LogWithdrawStaking(
+    address indexed staker,
+    address indexed val,
+    uint256 amount,
+    uint256 time
+);
 
 
 
-# 赎回出块收益(含hb和hsct)，该方法由收益地址调用，调用时需传入赎回的是哪个validator的收益
+# 赎回出块收益，该方法由收益地址调用，调用时需传入赎回的是哪个validator的收益
 # validator: validator地址
 withdrawProfits(address validator)
 # 交易事件
 # val: validator的地址
 # fee: 收益人的地址
 # hb: hb收益金额
-# hsct: hsct收益金额
 # time: 交易时间
 event LogWithdrawProfits(
     address indexed val,
     address indexed fee,
     uint256 hb,
-    uint256 hsct,
     uint256 time
 );
 
@@ -298,4 +275,28 @@ event LogWithdrawProfits(
 getActiveValidators() returns (address[] memory)
 # 查看当前top validator列表，当前质押金额最高的validator列表，下一周期会被激活
 getTopValidators() returns (address[] memory)
+# 返回validator基本信息
+getValidatorDescription(address val) returns (
+    string memory moniker,
+    string memory identity,
+    string memory website,
+    string memory email,
+    string memory details
+)
+# 返回validator详细信息
+getValidatorInfo(address val)return (
+    feeAddr, // 收益地址
+    status, // 当前状态
+    coins, // 总押金
+    hbIncoming, // hb收益
+    totalJailedHB, // 被没收的hb
+    lastWithdrawProfitsBlock, // 上次赎回收益的块号
+    stakers // 向该validator质押的用户列表
+);
+# 返回质押的详细信息
+getStakingInfo(address staker, address val) return (
+    coins, // 押金金额
+    unstakeBlock, // 执行unstake操作的块号
+    index // 在validator的stakers列表中是索引
+);
 ```

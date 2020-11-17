@@ -73,11 +73,9 @@ var (
 	validatorsContractName = "validators"
 	punishContractName     = "punish"
 	proposalContractName   = "proposal"
-	hsctTokenContractName  = "hsct"
 	validatorsContractAddr = common.HexToAddress("0x000000000000000000000000000000000000f000")
 	punishContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f001")
 	proposalAddr           = common.HexToAddress("0x000000000000000000000000000000000000f002")
-	hsctTokenAddr          = common.HexToAddress("0x000000000000000000000000000000000000f003")
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -560,6 +558,20 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 		}
 	}
 
+	if header.Difficulty.Cmp(diffInTurn) != 0 {
+		if err := c.tryPunishValidator(chain, header, state); err != nil {
+			return err
+		}
+	}
+
+	// execute block reward tx.
+	if len(txs) > 0 {
+		if err := c.trySendBlockReward(chain, header, state); err != nil {
+			return err
+		}
+	}
+
+	// do epoch thing at the end, because it will update active validators
 	if header.Number.Uint64()%c.config.Epoch == 0 {
 		newValidators, err := c.doSomethingAtEpoch(chain, header, state)
 		if err != nil {
@@ -574,19 +586,6 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 		extraSuffix := len(header.Extra) - extraSeal
 		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
 			return errInvalidExtraValidators
-		}
-	}
-
-	if header.Difficulty.Cmp(diffInTurn) != 0 {
-		if err := c.tryPunishValidator(chain, header, state); err != nil {
-			return err
-		}
-	}
-
-	// execute block reward tx.
-	if len(txs) > 0 {
-		if err := c.trySendBlockReward(chain, header, state); err != nil {
-			return err
 		}
 	}
 
@@ -607,12 +606,6 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 		}
 	}
 
-	if header.Number.Uint64()%c.config.Epoch == 0 {
-		if _, err := c.doSomethingAtEpoch(chain, header, state); err != nil {
-			panic(err)
-		}
-	}
-
 	// punish validator if necessary
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
 		if err := c.tryPunishValidator(chain, header, state); err != nil {
@@ -623,6 +616,13 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	// deposit block reward if any tx exists.
 	if len(txs) > 0 {
 		if err := c.trySendBlockReward(chain, header, state); err != nil {
+			panic(err)
+		}
+	}
+
+	// do epoch thing at the end, because it will update active validators
+	if header.Number.Uint64()%c.config.Epoch == 0 {
+		if _, err := c.doSomethingAtEpoch(chain, header, state); err != nil {
 			panic(err)
 		}
 	}
@@ -724,11 +724,10 @@ func (c *Congress) initializeSystemContracts(chain consensus.ChainHeaderReader, 
 		packFun func() ([]byte, error)
 	}{
 		{validatorsContractAddr, func() ([]byte, error) {
-			return c.abi[validatorsContractName].Pack(method, genesisValidators, c.config.Admin)
+			return c.abi[validatorsContractName].Pack(method, genesisValidators)
 		}},
 		{punishContractAddr, func() ([]byte, error) { return c.abi[punishContractName].Pack(method) }},
 		{proposalAddr, func() ([]byte, error) { return c.abi[proposalContractName].Pack(method, genesisValidators) }},
-		{hsctTokenAddr, func() ([]byte, error) { return c.abi[hsctTokenContractName].Pack(method, c.config.Premint) }},
 	}
 
 	for _, contract := range contracts {

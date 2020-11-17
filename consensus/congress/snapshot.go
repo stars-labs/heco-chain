@@ -152,28 +152,8 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		snap.Recents[number] = validator
 
 		// update validators at the first block at epoch
-		if number > 0 && number%s.config.Epoch == 1 {
-			var checkpointHeader *types.Header
-			// try to find checkpoint header in parents
-			dstNumber, dstHash := header.Number.Uint64()-1, header.ParentHash
-			for i := len(parents) - 1; i >= 0; i-- {
-				if parents[i].Number.Uint64() == dstNumber && parents[i].Hash() == dstHash {
-					checkpointHeader = parents[i]
-					break
-				}
-
-				if parents[i].Number.Uint64() < dstNumber {
-					break
-				}
-			}
-
-			if checkpointHeader == nil {
-				checkpointHeader = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-			}
-
-			if checkpointHeader == nil {
-				return nil, consensus.ErrUnknownAncestor
-			}
+		if number > 0 && number%s.config.Epoch == 0 {
+			checkpointHeader := header
 
 			// get validators from headers and use that for new validator set
 			validators := make([]common.Address, (len(checkpointHeader.Extra)-extraVanity-extraSeal)/common.AddressLength)

@@ -9,11 +9,6 @@ const validatorsInteractiveABI = `
 			"internalType": "address[]",
 			"name": "vals",
 			"type": "address[]"
-		  },
-		  {
-			"internalType": "address",
-			"name": "admin_",
-			"type": "address"
 		  }
 		],
 		"name": "initialize",
@@ -108,24 +103,6 @@ const proposalInteractiveABI = `
 			"internalType": "address[]",
 			"name": "vals",
 			"type": "address[]"
-		  }
-		],
-		"name": "initialize",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	}
-]
-`
-
-const tokenInteractiveABI = `
-[
-	{
-		"inputs": [
-		  {
-			"internalType": "address",
-			"name": "premint",
-			"type": "address"
 		  }
 		],
 		"name": "initialize",
