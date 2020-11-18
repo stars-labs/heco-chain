@@ -646,10 +646,10 @@ func (c *Congress) trySendBlockReward(chain consensus.ChainHeaderReader, header 
 	// reset fee
 	state.SetBalance(consensus.FeeRecoder, common.Big0)
 
-	method := "depositBlockReward"
+	method := "distributeBlockReward"
 	data, err := c.abi[validatorsContractName].Pack(method)
 	if err != nil {
-		log.Error("Can't pack data for depositBlockReward", "err", err)
+		log.Error("Can't pack data for distributeBlockReward", "err", err)
 		return err
 	}
 
