@@ -18,7 +18,7 @@ const validatorsInteractiveABI = `
 	},
 	{
 		"inputs": [],
-		"name": "depositBlockReward",
+		"name": "distributeBlockReward",
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"
