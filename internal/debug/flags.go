@@ -41,6 +41,11 @@ var (
 		Usage: "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail",
 		Value: 3,
 	}
+	logPathFlag = cli.StringFlag{
+		Name:  "logpath",
+		Usage: "File path for log files",
+		Value: "",
+	}
 	vmoduleFlag = cli.StringFlag{
 		Name:  "vmodule",
 		Usage: "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. eth/*=5,p2p=4)",
@@ -114,7 +119,7 @@ var (
 
 // Flags holds all command-line flags required for debugging.
 var Flags = []cli.Flag{
-	verbosityFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
+	verbosityFlag, logPathFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
 	pprofFlag, pprofAddrFlag, pprofPortFlag, memprofilerateFlag,
 	blockprofilerateFlag, cpuprofileFlag, traceFlag,
 }
@@ -125,24 +130,29 @@ var DeprecatedFlags = []cli.Flag{
 }
 
 var (
-	ostream log.Handler
 	glogger *log.GlogHandler
 )
-
-func init() {
-	usecolor := (isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())) && os.Getenv("TERM") != "dumb"
-	output := io.Writer(os.Stderr)
-	if usecolor {
-		output = colorable.NewColorableStderr()
-	}
-	ostream = log.StreamHandler(output, log.TerminalFormat(usecolor))
-	glogger = log.NewGlogHandler(ostream)
-}
 
 // Setup initializes profiling and logging based on the CLI flags.
 // It should be called as early as possible in the program.
 func Setup(ctx *cli.Context) error {
 	// logging
+	usecolor := (isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())) && os.Getenv("TERM") != "dumb"
+
+	var handler log.Handler
+	if ctx.GlobalString(logPathFlag.Name) != "" {
+		rConfig := log.NewRotateConfig()
+		rConfig.LogDir = ctx.GlobalString(logPathFlag.Name)
+		handler = log.NewFileRotateHandler(rConfig, log.TerminalFormat(usecolor))
+	} else {
+		output := io.Writer(os.Stderr)
+		if usecolor {
+			output = colorable.NewColorableStderr()
+		}
+		handler = log.StreamHandler(output, log.TerminalFormat(usecolor))
+	}
+	glogger = log.NewGlogHandler(handler)
+
 	log.PrintOrigins(ctx.GlobalBool(debugFlag.Name))
 	glogger.Verbosity(log.Lvl(ctx.GlobalInt(verbosityFlag.Name)))
 	glogger.Vmodule(ctx.GlobalString(vmoduleFlag.Name))
