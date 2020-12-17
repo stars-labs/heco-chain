@@ -1,119 +1,134 @@
-# 火币生态链Heco
+# Huobi ECO Chain – Heco
 
-简体中文 | [English](./README_EN.md)
-
-## 火币开放平台介绍
-火币开放平台是基于火币集团的技术资源、流量资源和生态资源，向区块链行业陆续全面开放的基础设施统一平台。使去中心化应用的搭建效率更高成本更低，并在推广、流量、资源等方面进行全方位赋能。2020年12月，火币开放平台推出的第一个产品——火币生态链Heco正式启动“火种”阶段，后续火币开放平台将推出基于Layer2扩展方案的DEX及其他区块链基础设施。火币开放平台将为全球开发者提供更多元的创新设施和基础服务。
-
-## 火币生态链Heco简介
-火币生态链 Huobi ECO Chain (Heco) 是一个去中心化高效节能公链，也是火币开放平台推出的首个产品，在支撑高性能交易的基础上，实现智能合约的兼容。火币生态链Heco的原生数字资产为HT，采用HPoS共识机制。
-
-## 宣言
-助力开发者成长的每个阶段
-
-## 愿景
-技术创新是推动区块链行业前进的源动力，而诸多创新项目早期都饱受误解与忽视。我们见证过伟大项目的生长过程，回顾以太坊、波卡早期被质疑为山寨币，都经历过艰难时期。所以，Heco的使命不仅是一条公链，更加会倾注在优质开发者、早期创新项目的发掘和扶持上。Heco依托全球最大的交易生态，致力于成为创新技术、创新业务的发源地，构建一个技术开发、应用推广、交易的完整生态闭环。
-
-## 火币生态链Heco性能
-- TPS：500+
-- 出块时间：3s
-
-## 共识机制
-采用HPoS共识机制，具有交易成本低、交易延时低、交易并发高等特点；
-支持最大的验证人节点数量是 21个。
-
-## 经济模型
-链上原生代币是 HT；交易消耗 HT作为链上交易手续费；
-通过质押HT来成为验证人节点。节点按照质押比例分配奖励，奖励是链上交易手续费。
-
-## 跨链
-可通过资产跨链桥，将ETH、BTC、稳定币等资产映射到Heco，实现方式为在源链上锁定一定数量的资产后在Heco生成对应数量的Token。
-Heco鼓励社区开发者提供更多去中心化的跨链解决方案。
-
-## 元交易功能
-支持元交易功能，可以实现用户阶梯式减免链上交易手续费，减免部分由Heco代替用户支付。该功能可有效降低DApp开发者的迁移成本，可大幅降低用户使用DApp的成本。
-
-## Heco技术特性
-- 开放、去中心化的网络，维护网络和资产的安全；
-- 支持EVM的可编程性，智能合约的兼容性，降低开发或迁移成本；
-- 元交易功能：手续费减免，进一步降低开发者和用户的链上成本；
-- 跨链资产传输，优化资产跨链体验。
+English | [简体中文](README_CN.md)
 
 
+## Introduction to the Huobi Open Platform
+The Huobi Open Platform is a unified infrastructure platform based on the technical, traffic and ecological resources of the Huobi Group, and will be gradually open to the blockchain industry. It will make the construction of decentralized applications more efficient and cost-effective, and provide comprehensive empowerment in aspects of promotion, traffic, and resources. In December 2020, the first product of the Huobi Open Platform, the Huobi ECO Chain, also known as Heco, officially launched its "Tinder" phase. In addition, Huobi Open Platform will launch DEX and other blockchain infrastructures based on Layer 2. The Huobi Open Platform will provide global developers with series of diverse innovative facilities and services.
 
-## Heco的四个阶段
+## Introduction to Huobi ECO Chain
+Huobi ECO Chain (Heco) is a decentralized, high-efficiency and energy-saving public chain, also the first product launched by the Huobi Open Platform. It is compatible with smart contracts and supports high-performance transactions. The endogenous token of Heco is HT and it adopts the HPoS consensus mechanism. Heco will continue to improve the efficiency of Ethereum by Layer2, which will supplement and empower the Ethereum ecosystem.
+
+## Declaration
+To help developers’ evolvement at every stage 
+
+## Vision
+Technological innovation is the driving force behind the advancement of the blockchain industry, but many innovative projects have been misunderstood and ignored at their early stages. We have witnessed the growth process of great projects. Recalling that Ethereum and Polkadot were questioned as altcoins in the early days, they all went through difficult times. Therefore, Heco's mission is not only a public chain, but also to focus on the discovery and support of high-potential developers and innovative projects. Relying on the world's largest trading ecosystem, Heco is committed to becoming the birthplace of innovative technologies and innovative businesses, and building a complete ecological loop of technology development, application promotion, and trading.
+
+## Heco’s Performance
+- TPS: 500+
+- Average block interval: 3s
+
+## Consensus Mechanism
+HPoS consensus mechanism: it has the characteristics of low transaction cost, low transaction delay, and high transaction concurrency.
+
+The maximum number of validators supported is 21.
+
+## Economic Model 
+The endogenous token on the chain is HT; the transactions consume HT as gas fee.
+
+Miners pledge HT to become validator nodes. The reward of nodes is gas fee, which is distributed according to the mortgage proportion. 
+
+## Cross-Chain
+Assets such as BTC, ETH and stable coins can be mapped to Heco by an asset bridge. The realization method is to lock a certain amount of tokens on the original chain then generate a corresponding number of tokens on Heco. 
+
+Heco encourages developers to provide more decentralized cross-chain solution.  
+
+## Meta Transaction Function
+The meta-transaction function is supported, which allows users to reduce gas fees step-wise, and Heco will cover the payment of the reduced part. The meta-transaction function allows to minimize the migration cost of DApp developers, as well as to effectively reduce the cost of DApp users.
+
+## Heco Technical Characteristics
+- An open and decentralized network to maintain the security of the network and assets.
+- Support the programmability of EVM, the compatibility of smart contracts to reduce development or migration costs.
+- Meta-transaction function: gas fee reduction, effectively reducing the cost of developers and users on the chain.
+- Support cross-chain asset transfer to optimize users’ experience.
+
+## Four Stages of Heco
+
 <table >
-    <tr style="background:rgba(0,0,0,0)" ><th colspan=5>火币生态链Heco技术路线</th> </tr>
+    <tr style="background:rgba(0,0,0,0)" ><th colspan=5>Heco Technical Route</th> </tr>
     <tr style="background:rgba(0,0,0,0)" >
-<th > 阶段 </th><th> 特征 </th><th> 时间 </th><th> 阶段细分 </th><th> 技术能力 </th>
+<th > Stage </th><th> Features </th><th> Time </th><th> Sub Stage </th><th> Technical Points </th>
 </tr>
 <tr style="background:rgba(0,0,0,0)" >
-<tr style="background:rgba(0,0,0,0)" ><td rowspan=9 >火种</td><td rowspan=9 >Heco的最初版本，系统稳定易用；
+<tr style="background:rgba(0,0,0,0)" ><td rowspan=9 >Tinder</td><td rowspan=9 >
+The initial version of Heco.
 
-开发者可低成本进行DApp的开发与推广；
+The system is stable and easy to use.
 
-普通用户可低门槛参与Heco上的DApp</td><td rowspan=9 >2020 Q4-2021 Q1</td><td rowspan=3 >公开测试期</td><td>更高交易性能</td></tr>
-<tr style="background:rgba(0,0,0,0)" ><td>更低交易成本</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>元交易补贴</td></tr>
-<tr style="background:rgba(0,0,0,0)"> <td rowspan=3 >节点竞选期</td><td>更去中心化，更安全</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>主流资产完备</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>基础工具初具雏形</td></tr>
-<tr style="background:rgba(0,0,0,0)"> <td rowspan=3 >生态孵化期</td><td>技术服务体系化</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>基础工具定制化</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>资产流转便捷化</td></tr>
+Developers can develop and promote Dapp at low cost.
 
-<tr style="background:rgba(0,0,0,0)"><td rowspan=5 > 星火  </td><td rowspan=5 > 协议进一步优化，Heco将肩负联通CeFi与DeFi，
+Users can participate in Dapp on Heco with a low threshold.</td><td rowspan=9 >2020 Q4-2021 Q1</td><td rowspan=3 >Public Beta</td><td>Higher transaction performance</td></tr>
+<tr style="background:rgba(0,0,0,0)" ><td>Lower transaction costs</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Meta transaction subsidy</td></tr>
+<tr style="background:rgba(0,0,0,0)"> <td rowspan=3 >Node Election</td><td>More decentralized and safer</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Complete mainstream assets</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Basic tools in place</td></tr>
+<tr style="background:rgba(0,0,0,0)"> <td rowspan=3 >Ecosystem Incubation</td><td>Technical service systemization</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Basic tool customization</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Convenient asset transfer</td></tr>
 
-让更多用户低门槛使用DeFi应用的使命  </td> <td rowspan=5 >2021 Q3 </td> <td rowspan=5 > 待公布  </td> <td>开发者工具完备</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>开发者论坛、博客、FAQ信息完备</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>链生态基础设施繁荣</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>创新型Open ID</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>个性化入口精准匹配用户和DApp</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td rowspan=5 > Spark </td><td rowspan=5 > 
+The protocol is further optimized. 
 
-<tr style="background:rgba(0,0,0,0)"><td rowspan=3>烈焰</td> <td rowspan=3>拓展性能，同时保留分布式协议的去中心化优势</td><td rowspan=3>2022 Q2</td><td rowspan=3>待公布</td><td>跨链互操作协议</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>跨链互操作集成</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>共识协议升级</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td rowspan=5>燎原</td> <td rowspan=5>更大规模的商业应用与落地，
+Heco will take the mission of connecting CeFi and DeFi, 
 
-支撑多种传统业务在链上顺利运行</td> <td rowspan=5>2023 Q1</td> <td rowspan=5>待公布</td><td>多虚拟机支持</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>多种零知识证明和隐私保护能力</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>多种签名方案</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>存储压缩和扩容方案</td></tr>
-<tr style="background:rgba(0,0,0,0)"><td>多维度分片方案</td></tr>
+allowing more users to use DeFi applications at a low threshold.  </td> <td rowspan=5 >2021 Q3 </td> <td rowspan=5 > To be announced  </td> <td>Complete developer tools</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Complete developer forum, blog, and FAQ information</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Chain ecological infrastructure booms</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Innovative open ID</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Personalized portal accurately matches users and Dapps</td></tr>
+
+<tr style="background:rgba(0,0,0,0)"><td rowspan=3>Flame</td> <td rowspan=3>
+
+Enable Layer2 technology.
+Expand performance while retaining the decentralized advantages of distributed protocols.</td><td rowspan=3>2022 Q2</td><td rowspan=3>To be announced</td><td>Application of Layer2</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Cross-chain interoperability protocol</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Cross-chain interoperability integration</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td rowspan=5>Blaze</td> <td rowspan=5>
+
+
+Landing of large-scale commercial applications. 
+Support a variety of traditional businesses to run smoothly on the chain</td> <td rowspan=5>2023 Q1</td> <td rowspan=5>To be announced</td><td>Multiple virtual machine s supported</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Multiple zero-knowledge proofs and privacy protection capabilities</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Multiple signature schemes</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Storage compression and expansion solution</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>Multi-dimensional sharding scheme</td></tr>
 
 </table>
 
 
 
-## 火币生态链Heco当前的阶段
-2020年12月，火币生态链Heco正式启动“火种”阶段，该阶段阶段将专注完善链上基础设施，包括但不限于：预言机、投票工具、锚定币、DEX、借贷、理财、保险、合成资产、跨链解决方案、数据分析、智能合约创新等等
+## Current Stage of Heco
+In December 2020, the Huobi ECO chain, Heco officially launched its "Tinder" phase, which will focus on improving the on-chain infrastructure, including but not limited to:
+Oracles, Voting tools, Anchor Coins, DEX, Lending, Fnancial Management, Insurance, Synthetic Assets, Cross-Chain Solutions, Data Analysis, Smart Contract Innovation, etc.
 
-## 火币生态链Heco扶持规划
-### 资金扶持规划
-- 火币生态链Heco将设立专项基金，投资、扶持、激励优质开发者
-- 火币生态链Heco将推出多种开发者活动与大赛，发掘、资助全球潜力开发者
-- 为降低大用户在Heco Dapp上的参与成本，Heco元交易功能将对持有HT的用户的Gas fee阶梯式减免
-### 流量扶持规划
-HuobiGlobal将大力支持火币生态链Heco的发展
-- 在站内为对Heco上的优质Dapp提供流量入口
-- 优质项目在Heco顺利运行后可向HuobiGlobal提交上币申请，满足上币条件即可登录主站
-### 资源扶持规划
-- 获得投资、扶持的项目或开发者不仅能获得官方报道，还可向官方申请营销服务包，并在全球范围内宣传项目
-- 优质项目可免费参与Heco全球路演活动
-- 火币集团将开放生态资源，撮合优质开发者与生态伙伴的合作与共赢
-火币生态链Heco将依托全球最大的交易生态，致力于成为创新技术、创新业务的发源地，构建一个技术开发、应用推广、交易的完整生态闭环。
+## Support Plan of Heco
+### Financial Support
+- Heco will set up a special fund to invest, support and incentivize high-potential developers.
+- Heco will launch a variety of developer activities and competitions to discover and fund potential developers. 
+- In order to reduce the cost of users on Heco Dapp, the Heco meta transaction function will reduce the gas fee of users holding HT in a step-wise manner.
+
+### Traffic Support
+Huobi Global will strongly support the development of Heco ecosystem:
+- Provide traffic entrance for high-quality Dapp on Heco.
+- After running successfully on Heco, high-quality projects can submit token listing application to Huobi Global, and can be listed on Huobi Global if they meet the listing standards.
+
+### Resource Support
+- Projects or developers that have received investment and support from Heco have not only the opportunity to get official news report, but also can apply for marketing service packages and promote their projects globally.
+- High-quality projects can participate in Heco global roadshows for free.
+- Huobi Group will open up ecological resources to high-potential developers, matching the win-win cooperation between developers and our ecological partners.
 
 
-## 在社交媒体上与我们互动
+## Interact with Us on Social Media
 - Facebook：Huobi Eco Chain
 - Twitter：Huobi_EcoChain
 - Telegram： HuobiEcoChain
-- 微博：火币生态链Heco
-- 公众号：Huobi Eco Heco
+- Weibo：火币生态链Heco
+- Wechat Offical Account：Huobi Eco Heco
 
-
-## 风险提示
-- 所有用户及开发者都可以免费参与火币生态链Heco的测试环境与后续阶段，不存在收费场景。
-- 大家务必区分好测试环境和主网环境，测试环境所产生的资产不具备任何价值，谨防假币诈骗；
-- 火币生态链Heco将通过官方社交平台公布授权、推介等合作，开发者和用户谨慎核对，以免造成损失；
-- 认准官方网址（hecochain.com），避免出现私钥被钓鱼等情况。
+## Risk Warning
+- All users and developers can participate in the current test environment and subsequent stages of Heco for free, and there is no charging scenario.
+- All users must distinguish the test environment from the Mainnet. The assets generated in the test environment have no value. Be aware of counterfeit currency fraud.
+- Heco announces authorization, promotion and other collaborations only through the official social media platform. Developers and users should check carefully to avoid losses.
+- Do not misread the official website (hecochain.com), and be cautious with private key phishing.
