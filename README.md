@@ -1,359 +1,119 @@
-## Go Ethereum
-
-Official Golang implementation of the Ethereum protocol.
-
-[![API Reference](
-https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/68747470733a2f2f676f646f632e6f72672f6769746875622e636f6d2f676f6c616e672f6764646f3f7374617475732e737667
-)](https://pkg.go.dev/github.com/ethereum/go-ethereum?tab=doc)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ethereum/go-ethereum)](https://goreportcard.com/report/github.com/ethereum/go-ethereum)
-[![Travis](https://travis-ci.org/ethereum/go-ethereum.svg?branch=master)](https://travis-ci.org/ethereum/go-ethereum)
-[![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/nthXNEv)
-
-Automated builds are available for stable releases and the unstable master branch. Binary
-archives are published at https://geth.ethereum.org/downloads/.
-
-## Building the source
-
-For prerequisites and detailed build instructions please read the [Installation Instructions](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum) on the wiki.
-
-Building `geth` requires both a Go (version 1.13 or later) and a C compiler. You can install
-them using your favourite package manager. Once the dependencies are installed, run
+# 火币生态链Heco
+
+简体中文 | [English](./README_EN.md)
+
+## 火币开放平台介绍
+火币开放平台是基于火币集团的技术资源、流量资源和生态资源，向区块链行业陆续全面开放的基础设施统一平台。使去中心化应用的搭建效率更高成本更低，并在推广、流量、资源等方面进行全方位赋能。2020年12月，火币开放平台推出的第一个产品——火币生态链Heco正式启动“火种”阶段，后续火币开放平台将推出基于Layer2扩展方案的DEX及其他区块链基础设施。火币开放平台将为全球开发者提供更多元的创新设施和基础服务。
 
-```shell
-make geth
-```
+## 火币生态链Heco简介
+火币生态链 Huobi ECO Chain (Heco) 是一个去中心化高效节能公链，也是火币开放平台推出的首个产品，在支撑高性能交易的基础上，实现智能合约的兼容。火币生态链Heco的原生数字资产为HT，采用HPoS共识机制。
+
+## 宣言
+助力开发者成长的每个阶段
+
+## 愿景
+技术创新是推动区块链行业前进的源动力，而诸多创新项目早期都饱受误解与忽视。我们见证过伟大项目的生长过程，回顾以太坊、波卡早期被质疑为山寨币，都经历过艰难时期。所以，Heco的使命不仅是一条公链，更加会倾注在优质开发者、早期创新项目的发掘和扶持上。Heco依托全球最大的交易生态，致力于成为创新技术、创新业务的发源地，构建一个技术开发、应用推广、交易的完整生态闭环。
 
-or, to build the full suite of utilities:
-
-```shell
-make all
-```
-
-## Executables
-
-The go-ethereum project comes with several wrappers/executables found in the `cmd`
-directory.
-
-|    Command    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| :-----------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  **`geth`**   | Our main Ethereum CLI client. It is the entry point into the Ethereum network (main-, test- or private net), capable of running as a full node (default), archive node (retaining all historical state) or a light node (retrieving data live). It can be used by other processes as a gateway into the Ethereum network via JSON RPC endpoints exposed on top of HTTP, WebSocket and/or IPC transports. `geth --help` and the [CLI Wiki page](https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options) for command line options.          |
-|   `abigen`    | Source code generator to convert Ethereum contract definitions into easy to use, compile-time type-safe Go packages. It operates on plain [Ethereum contract ABIs](https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI) with expanded functionality if the contract bytecode is also available. However, it also accepts Solidity source files, making development much more streamlined. Please see our [Native DApps](https://github.com/ethereum/go-ethereum/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts) wiki page for details. |
-|  `bootnode`   | Stripped down version of our Ethereum client implementation that only takes part in the network node discovery protocol, but does not run any of the higher level application protocols. It can be used as a lightweight bootstrap node to aid in finding peers in private networks.                                                                                                                                                                                                                                                                 |
-|     `evm`     | Developer utility version of the EVM (Ethereum Virtual Machine) that is capable of running bytecode snippets within a configurable environment and execution mode. Its purpose is to allow isolated, fine-grained debugging of EVM opcodes (e.g. `evm --code 60ff60ff --debug run`).                                                                                                                                                                                                                                                                     |
-| `gethrpctest` | Developer utility tool to support our [ethereum/rpc-test](https://github.com/ethereum/rpc-tests) test suite which validates baseline conformity to the [Ethereum JSON RPC](https://github.com/ethereum/wiki/wiki/JSON-RPC) specs. Please see the [test suite's readme](https://github.com/ethereum/rpc-tests/blob/master/README.md) for details.                                                                                                                                                                                                     |
-|   `rlpdump`   | Developer utility tool to convert binary RLP ([Recursive Length Prefix](https://github.com/ethereum/wiki/wiki/RLP)) dumps (data encoding used by the Ethereum protocol both network as well as consensus wise) to user-friendlier hierarchical representation (e.g. `rlpdump --hex CE0183FFFFFFC4C304050583616263`).                                                                                                                                                                                                                                 |
-|   `puppeth`   | a CLI wizard that aids in creating a new Ethereum network.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-
-## Running `geth`
-
-Going through all the possible command line flags is out of scope here (please consult our
-[CLI Wiki page](https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options)),
-but we've enumerated a few common parameter combos to get you up to speed quickly
-on how you can run your own `geth` instance.
-
-### Full node on the main Ethereum network
-
-By far the most common scenario is people wanting to simply interact with the Ethereum
-network: create accounts; transfer funds; deploy and interact with contracts. For this
-particular use-case the user doesn't care about years-old historical data, so we can
-fast-sync quickly to the current state of the network. To do so:
-
-```shell
-$ geth console
-```
-
-This command will:
- * Start `geth` in fast sync mode (default, can be changed with the `--syncmode` flag),
-   causing it to download more data in exchange for avoiding processing the entire history
-   of the Ethereum network, which is very CPU intensive.
- * Start up `geth`'s built-in interactive [JavaScript console](https://github.com/ethereum/go-ethereum/wiki/JavaScript-Console),
-   (via the trailing `console` subcommand) through which you can invoke all official [`web3` methods](https://github.com/ethereum/wiki/wiki/JavaScript-API)
-   as well as `geth`'s own [management APIs](https://github.com/ethereum/go-ethereum/wiki/Management-APIs).
-   This tool is optional and if you leave it out you can always attach to an already running
-   `geth` instance with `geth attach`.
-
-### A Full node on the Görli test network
-
-Transitioning towards developers, if you'd like to play around with creating Ethereum
-contracts, you almost certainly would like to do that without any real money involved until
-you get the hang of the entire system. In other words, instead of attaching to the main
-network, you want to join the **test** network with your node, which is fully equivalent to
-the main network, but with play-Ether only.
-
-```shell
-$ geth --goerli console
-```
-
-The `console` subcommand has the exact same meaning as above and they are equally
-useful on the testnet too. Please, see above for their explanations if you've skipped here.
-
-Specifying the `--goerli` flag, however, will reconfigure your `geth` instance a bit:
-
- * Instead of connecting the main Ethereum network, the client will connect to the Görli
-   test network, which uses different P2P bootnodes, different network IDs and genesis
-   states.
- * Instead of using the default data directory (`~/.ethereum` on Linux for example), `geth`
-   will nest itself one level deeper into a `goerli` subfolder (`~/.ethereum/goerli` on
-   Linux). Note, on OSX and Linux this also means that attaching to a running testnet node
-   requires the use of a custom endpoint since `geth attach` will try to attach to a
-   production node endpoint by default, e.g.,
-   `geth attach <datadir>/goerli/geth.ipc`. Windows users are not affected by
-   this.
-
-*Note: Although there are some internal protective measures to prevent transactions from
-crossing over between the main network and test network, you should make sure to always
-use separate accounts for play-money and real-money. Unless you manually move
-accounts, `geth` will by default correctly separate the two networks and will not make any
-accounts available between them.*
-
-### Full node on the Rinkeby test network
-
-Go Ethereum also supports connecting to the older proof-of-authority based test network
-called [*Rinkeby*](https://www.rinkeby.io) which is operated by members of the community.
-
-```shell
-$ geth --rinkeby console
-```
-
-### Full node on the Ropsten test network
-
-In addition to Görli and Rinkeby, Geth also supports the ancient Ropsten testnet. The
-Ropsten test network is based on the Ethash proof-of-work consensus algorithm. As such,
-it has certain extra overhead and is more susceptible to reorganization attacks due to the
-network's low difficulty/security.
-
-```shell
-$ geth --ropsten console
-```
-
-*Note: Older Geth configurations store the Ropsten database in the `testnet` subdirectory.*
-
-### Configuration
-
-As an alternative to passing the numerous flags to the `geth` binary, you can also pass a
-configuration file via:
-
-```shell
-$ geth --config /path/to/your_config.toml
-```
-
-To get an idea how the file should look like you can use the `dumpconfig` subcommand to
-export your existing configuration:
-
-```shell
-$ geth --your-favourite-flags dumpconfig
-```
-
-*Note: This works only with `geth` v1.6.0 and above.*
-
-#### Docker quick start
-
-One of the quickest ways to get Ethereum up and running on your machine is by using
-Docker:
-
-```shell
-docker run -d --name ethereum-node -v /Users/alice/ethereum:/root \
-           -p 8545:8545 -p 30303:30303 \
-           ethereum/client-go
-```
-
-This will start `geth` in fast-sync mode with a DB memory allowance of 1GB just as the
-above command does.  It will also create a persistent volume in your home directory for
-saving your blockchain as well as map the default ports. There is also an `alpine` tag
-available for a slim version of the image.
-
-Do not forget `--http.addr 0.0.0.0`, if you want to access RPC from other containers
-and/or hosts. By default, `geth` binds to the local interface and RPC endpoints is not
-accessible from the outside.
-
-### Programmatically interfacing `geth` nodes
-
-As a developer, sooner rather than later you'll want to start interacting with `geth` and the
-Ethereum network via your own programs and not manually through the console. To aid
-this, `geth` has built-in support for a JSON-RPC based APIs ([standard APIs](https://github.com/ethereum/wiki/wiki/JSON-RPC)
-and [`geth` specific APIs](https://github.com/ethereum/go-ethereum/wiki/Management-APIs)).
-These can be exposed via HTTP, WebSockets and IPC (UNIX sockets on UNIX based
-platforms, and named pipes on Windows).
-
-The IPC interface is enabled by default and exposes all the APIs supported by `geth`,
-whereas the HTTP and WS interfaces need to manually be enabled and only expose a
-subset of APIs due to security reasons. These can be turned on/off and configured as
-you'd expect.
-
-HTTP based JSON-RPC API options:
-
-  * `--http` Enable the HTTP-RPC server
-  * `--http.addr` HTTP-RPC server listening interface (default: `localhost`)
-  * `--http.port` HTTP-RPC server listening port (default: `8545`)
-  * `--http.api` API's offered over the HTTP-RPC interface (default: `eth,net,web3`)
-  * `--http.corsdomain` Comma separated list of domains from which to accept cross origin requests (browser enforced)
-  * `--ws` Enable the WS-RPC server
-  * `--ws.addr` WS-RPC server listening interface (default: `localhost`)
-  * `--ws.port` WS-RPC server listening port (default: `8546`)
-  * `--ws.api` API's offered over the WS-RPC interface (default: `eth,net,web3`)
-  * `--ws.origins` Origins from which to accept websockets requests
-  * `--ipcdisable` Disable the IPC-RPC server
-  * `--ipcapi` API's offered over the IPC-RPC interface (default: `admin,debug,eth,miner,net,personal,shh,txpool,web3`)
-  * `--ipcpath` Filename for IPC socket/pipe within the datadir (explicit paths escape it)
-
-You'll need to use your own programming environments' capabilities (libraries, tools, etc) to
-connect via HTTP, WS or IPC to a `geth` node configured with the above flags and you'll
-need to speak [JSON-RPC](https://www.jsonrpc.org/specification) on all transports. You
-can reuse the same connection for multiple requests!
-
-**Note: Please understand the security implications of opening up an HTTP/WS based
-transport before doing so! Hackers on the internet are actively trying to subvert
-Ethereum nodes with exposed APIs! Further, all browser tabs can access locally
-running web servers, so malicious web pages could try to subvert locally available
-APIs!**
-
-### Operating a private network
-
-Maintaining your own private network is more involved as a lot of configurations taken for
-granted in the official networks need to be manually set up.
-
-#### Defining the private genesis state
-
-First, you'll need to create the genesis state of your networks, which all nodes need to be
-aware of and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`):
-
-```json
-{
-  "config": {
-    "chainId": <arbitrary positive integer>,
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0
-  },
-  "alloc": {},
-  "coinbase": "0x0000000000000000000000000000000000000000",
-  "difficulty": "0x20000",
-  "extraData": "",
-  "gasLimit": "0x2fefd8",
-  "nonce": "0x0000000000000042",
-  "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "timestamp": "0x00"
-}
-```
-
-The above fields should be fine for most purposes, although we'd recommend changing
-the `nonce` to some random value so you prevent unknown remote nodes from being able
-to connect to you. If you'd like to pre-fund some accounts for easier testing, create
-the accounts and populate the `alloc` field with their addresses.
-
-```json
-"alloc": {
-  "0x0000000000000000000000000000000000000001": {
-    "balance": "111111111"
-  },
-  "0x0000000000000000000000000000000000000002": {
-    "balance": "222222222"
-  }
-}
-```
-
-With the genesis state defined in the above JSON file, you'll need to initialize **every**
-`geth` node with it prior to starting it up to ensure all blockchain parameters are correctly
-set:
-
-```shell
-$ geth init path/to/genesis.json
-```
-
-#### Creating the rendezvous point
-
-With all nodes that you want to run initialized to the desired genesis state, you'll need to
-start a bootstrap node that others can use to find each other in your network and/or over
-the internet. The clean way is to configure and run a dedicated bootnode:
-
-```shell
-$ bootnode --genkey=boot.key
-$ bootnode --nodekey=boot.key
-```
-
-With the bootnode online, it will display an [`enode` URL](https://github.com/ethereum/wiki/wiki/enode-url-format)
-that other nodes can use to connect to it and exchange peer information. Make sure to
-replace the displayed IP address information (most probably `[::]`) with your externally
-accessible IP to get the actual `enode` URL.
-
-*Note: You could also use a full-fledged `geth` node as a bootnode, but it's the less
-recommended way.*
-
-#### Starting up your member nodes
-
-With the bootnode operational and externally reachable (you can try
-`telnet <ip> <port>` to ensure it's indeed reachable), start every subsequent `geth`
-node pointed to the bootnode for peer discovery via the `--bootnodes` flag. It will
-probably also be desirable to keep the data directory of your private network separated, so
-do also specify a custom `--datadir` flag.
-
-```shell
-$ geth --datadir=path/to/custom/data/folder --bootnodes=<bootnode-enode-url-from-above>
-```
-
-*Note: Since your network will be completely cut off from the main and test networks, you'll
-also need to configure a miner to process transactions and create new blocks for you.*
-
-#### Running a private miner
-
-Mining on the public Ethereum network is a complex task as it's only feasible using GPUs,
-requiring an OpenCL or CUDA enabled `ethminer` instance. For information on such a
-setup, please consult the [EtherMining subreddit](https://www.reddit.com/r/EtherMining/)
-and the [ethminer](https://github.com/ethereum-mining/ethminer) repository.
-
-In a private network setting, however a single CPU miner instance is more than enough for
-practical purposes as it can produce a stable stream of blocks at the correct intervals
-without needing heavy resources (consider running on a single thread, no need for multiple
-ones either). To start a `geth` instance for mining, run it with all your usual flags, extended
-by:
-
-```shell
-$ geth <usual-flags> --mine --miner.threads=1 --etherbase=0x0000000000000000000000000000000000000000
-```
-
-Which will start mining blocks and transactions on a single CPU thread, crediting all
-proceedings to the account specified by `--etherbase`. You can further tune the mining
-by changing the default gas limit blocks converge to (`--targetgaslimit`) and the price
-transactions are accepted at (`--gasprice`).
-
-## Contribution
-
-Thank you for considering to help out with the source code! We welcome contributions
-from anyone on the internet, and are grateful for even the smallest of fixes!
-
-If you'd like to contribute to go-ethereum, please fork, fix, commit and send a pull request
-for the maintainers to review and merge into the main code base. If you wish to submit
-more complex changes though, please check up with the core devs first on [our gitter channel](https://gitter.im/ethereum/go-ethereum)
-to ensure those changes are in line with the general philosophy of the project and/or get
-some early feedback which can make both your efforts much lighter as well as our review
-and merge procedures quick and simple.
-
-Please make sure your contributions adhere to our coding guidelines:
-
- * Code must adhere to the official Go [formatting](https://golang.org/doc/effective_go.html#formatting)
-   guidelines (i.e. uses [gofmt](https://golang.org/cmd/gofmt/)).
- * Code must be documented adhering to the official Go [commentary](https://golang.org/doc/effective_go.html#commentary)
-   guidelines.
- * Pull requests need to be based on and opened against the `master` branch.
- * Commit messages should be prefixed with the package(s) they modify.
-   * E.g. "eth, rpc: make trace configs optional"
-
-Please see the [Developers' Guide](https://github.com/ethereum/go-ethereum/wiki/Developers'-Guide)
-for more details on configuring your environment, managing project dependencies, and
-testing procedures.
-
-## License
-
-The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the
-[GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html),
-also included in our repository in the `COPYING.LESSER` file.
-
-The go-ethereum binaries (i.e. all code inside of the `cmd` directory) is licensed under the
-[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also
-included in our repository in the `COPYING` file.
+## 火币生态链Heco性能
+- TPS：500+
+- 出块时间：3s
+
+## 共识机制
+采用HPoS共识机制，具有交易成本低、交易延时低、交易并发高等特点；
+支持最大的验证人节点数量是 21个。
+
+## 经济模型
+链上原生代币是 HT；交易消耗 HT作为链上交易手续费；
+通过质押HT来成为验证人节点。节点按照质押比例分配奖励，奖励是链上交易手续费。
+
+## 跨链
+可通过资产跨链桥，将ETH、BTC、稳定币等资产映射到Heco，实现方式为在源链上锁定一定数量的资产后在Heco生成对应数量的Token。
+Heco鼓励社区开发者提供更多去中心化的跨链解决方案。
+
+## 元交易功能
+支持元交易功能，可以实现用户阶梯式减免链上交易手续费，减免部分由Heco代替用户支付。该功能可有效降低DApp开发者的迁移成本，可大幅降低用户使用DApp的成本。
+
+## Heco技术特性
+- 开放、去中心化的网络，维护网络和资产的安全；
+- 支持EVM的可编程性，智能合约的兼容性，降低开发或迁移成本；
+- 元交易功能：手续费减免，进一步降低开发者和用户的链上成本；
+- 跨链资产传输，优化资产跨链体验。
+
+
+
+## Heco的四个阶段
+<table >
+    <tr style="background:rgba(0,0,0,0)" ><th colspan=5>火币生态链Heco技术路线</th> </tr>
+    <tr style="background:rgba(0,0,0,0)" >
+<th > 阶段 </th><th> 特征 </th><th> 时间 </th><th> 阶段细分 </th><th> 技术能力 </th>
+</tr>
+<tr style="background:rgba(0,0,0,0)" >
+<tr style="background:rgba(0,0,0,0)" ><td rowspan=9 >火种</td><td rowspan=9 >Heco的最初版本，系统稳定易用；
+
+开发者可低成本进行DApp的开发与推广；
+
+普通用户可低门槛参与Heco上的DApp</td><td rowspan=9 >2020 Q4-2021 Q1</td><td rowspan=3 >公开测试期</td><td>更高交易性能</td></tr>
+<tr style="background:rgba(0,0,0,0)" ><td>更低交易成本</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>元交易补贴</td></tr>
+<tr style="background:rgba(0,0,0,0)"> <td rowspan=3 >节点竞选期</td><td>更去中心化，更安全</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>主流资产完备</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>基础工具初具雏形</td></tr>
+<tr style="background:rgba(0,0,0,0)"> <td rowspan=3 >生态孵化期</td><td>技术服务体系化</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>基础工具定制化</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>资产流转便捷化</td></tr>
+
+<tr style="background:rgba(0,0,0,0)"><td rowspan=5 > 星火  </td><td rowspan=5 > 协议进一步优化，Heco将肩负联通CeFi与DeFi，
+
+让更多用户低门槛使用DeFi应用的使命  </td> <td rowspan=5 >2021 Q3 </td> <td rowspan=5 > 待公布  </td> <td>开发者工具完备</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>开发者论坛、博客、FAQ信息完备</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>链生态基础设施繁荣</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>创新型Open ID</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>个性化入口精准匹配用户和DApp</td></tr>
+
+<tr style="background:rgba(0,0,0,0)"><td rowspan=3>烈焰</td> <td rowspan=3>拓展性能，同时保留分布式协议的去中心化优势</td><td rowspan=3>2022 Q2</td><td rowspan=3>待公布</td><td>跨链互操作协议</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>跨链互操作集成</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>共识协议升级</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td rowspan=5>燎原</td> <td rowspan=5>更大规模的商业应用与落地，
+
+支撑多种传统业务在链上顺利运行</td> <td rowspan=5>2023 Q1</td> <td rowspan=5>待公布</td><td>多虚拟机支持</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>多种零知识证明和隐私保护能力</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>多种签名方案</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>存储压缩和扩容方案</td></tr>
+<tr style="background:rgba(0,0,0,0)"><td>多维度分片方案</td></tr>
+
+</table>
+
+
+
+## 火币生态链Heco当前的阶段
+2020年12月，火币生态链Heco正式启动“火种”阶段，该阶段阶段将专注完善链上基础设施，包括但不限于：预言机、投票工具、锚定币、DEX、借贷、理财、保险、合成资产、跨链解决方案、数据分析、智能合约创新等等
+
+## 火币生态链Heco扶持规划
+### 资金扶持规划
+- 火币生态链Heco将设立专项基金，投资、扶持、激励优质开发者
+- 火币生态链Heco将推出多种开发者活动与大赛，发掘、资助全球潜力开发者
+- 为降低大用户在Heco Dapp上的参与成本，Heco元交易功能将对持有HT的用户的Gas fee阶梯式减免
+### 流量扶持规划
+HuobiGlobal将大力支持火币生态链Heco的发展
+- 在站内为对Heco上的优质Dapp提供流量入口
+- 优质项目在Heco顺利运行后可向HuobiGlobal提交上币申请，满足上币条件即可登录主站
+### 资源扶持规划
+- 获得投资、扶持的项目或开发者不仅能获得官方报道，还可向官方申请营销服务包，并在全球范围内宣传项目
+- 优质项目可免费参与Heco全球路演活动
+- 火币集团将开放生态资源，撮合优质开发者与生态伙伴的合作与共赢
+火币生态链Heco将依托全球最大的交易生态，致力于成为创新技术、创新业务的发源地，构建一个技术开发、应用推广、交易的完整生态闭环。
+
+
+## 在社交媒体上与我们互动
+- Facebook：Huobi Eco Chain
+- Twitter：Huobi_EcoChain
+- Telegram： HuobiEcoChain
+- 微博：火币生态链Heco
+- 公众号：Huobi Eco Heco
+
+
+## 风险提示
+- 所有用户及开发者都可以免费参与火币生态链Heco的测试环境与后续阶段，不存在收费场景。
+- 大家务必区分好测试环境和主网环境，测试环境所产生的资产不具备任何价值，谨防假币诈骗；
+- 火币生态链Heco将通过官方社交平台公布授权、推介等合作，开发者和用户谨慎核对，以免造成损失；
+- 认准官方网址（hecochain.com），避免出现私钥被钓鱼等情况。
