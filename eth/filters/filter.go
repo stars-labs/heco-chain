@@ -19,6 +19,7 @@ package filters
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +30,8 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/rpc"
 )
+
+const maxFilterBlockRange = 5000
 
 type Backend interface {
 	ChainDb() ethdb.Database
@@ -142,6 +145,11 @@ func (f *Filter) Logs(ctx context.Context) ([]*types.Log, error) {
 	if f.end == -1 {
 		end = head
 	}
+
+	if (int64(end) - f.begin) > maxFilterBlockRange {
+		return nil, fmt.Errorf("exceed maximum block range: %d", maxFilterBlockRange)
+	}
+
 	// Gather all indexed logs, and finish with non indexed ones
 	var (
 		logs []*types.Log

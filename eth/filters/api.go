@@ -38,8 +38,6 @@ var (
 	deadline = 5 * time.Minute // consider a filter inactive if it has not been polled for within deadline
 )
 
-const maxFilterBlockRange = 5000
-
 // filter is a helper struct that holds meta information over the filter type
 // and associated subscription in the event system.
 type filter struct {
@@ -341,10 +339,6 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 			end = crit.ToBlock.Int64()
 		}
 
-		//add max blocks
-		if (end - begin) > maxFilterBlockRange {
-			return nil, fmt.Errorf("exceed maximum block range: %d", maxFilterBlockRange)
-		}
 		// Construct the range filter
 		filter = NewRangeFilter(api.backend, begin, end, crit.Addresses, crit.Topics)
 	}
