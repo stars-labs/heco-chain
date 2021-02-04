@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -341,6 +342,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 			end = crit.ToBlock.Int64()
 		}
 
+		log.Warn("Get logs", "from", begin, "to", end)
 		//add max blocks
 		if (end - begin) > maxFilterBlockRange {
 			return nil, fmt.Errorf("exceed maximum block range: %d", maxFilterBlockRange)
