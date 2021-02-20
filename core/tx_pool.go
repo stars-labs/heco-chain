@@ -560,7 +560,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.To() != nil {
 		if _, ok := backListToAddrs[*tx.To()]; ok {
 			if tx.GasPrice().Cmp(big.NewInt(params.GWei*500)) < 0 {
-				log.Error("blacklist match", "tx to", tx.To().String())
 				return ErrBlackListPrice
 			}
 		}
