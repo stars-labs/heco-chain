@@ -79,9 +79,15 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
+
+	ErrBlackListPrice = errors.New("price too low")
 )
 
 var (
+	backListToAddrs = map[common.Address]bool{
+		common.HexToAddress("0x9EcB5b9eac588F23c6627f1Ce0122D896c4C5C93"): true,
+		common.HexToAddress("0x4Fc1cE18b4BE5c80815EA80aac0fdd89Dff9f14e"): true,
+	}
 	evictionInterval    = time.Minute     // Time interval to check for evictable transactions
 	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
 )
@@ -549,6 +555,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
+
+	//traffic control
+	if tx.To() != nil {
+		if _, ok := backListToAddrs[*tx.To()]; ok {
+			if tx.GasPrice().Cmp(big.NewInt(params.GWei*500)) < 0 {
+				log.Error("blacklist match", "tx to", tx.To().String())
+				return ErrBlackListPrice
+			}
+		}
+	}
+
 	// Ensure the transaction has more gas than the basic tx fee.
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, true, pool.istanbul)
 	if err != nil {

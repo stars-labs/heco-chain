@@ -338,6 +338,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 		if crit.ToBlock != nil {
 			end = crit.ToBlock.Int64()
 		}
+
 		// Construct the range filter
 		filter = NewRangeFilter(api.backend, begin, end, crit.Addresses, crit.Topics)
 	}
