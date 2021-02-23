@@ -17,9 +17,12 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"math"
 	"math/big"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -84,10 +87,6 @@ var (
 )
 
 var (
-	backListToAddrs = map[common.Address]bool{
-		common.HexToAddress("0x9EcB5b9eac588F23c6627f1Ce0122D896c4C5C93"): true,
-		common.HexToAddress("0x4Fc1cE18b4BE5c80815EA80aac0fdd89Dff9f14e"): true,
-	}
 	evictionInterval    = time.Minute     // Time interval to check for evictable transactions
 	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
 )
@@ -154,6 +153,9 @@ type TxPoolConfig struct {
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+
+	BlacklistURL            string
+	UpdateBlacklistInterval time.Duration
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -171,6 +173,9 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	GlobalQueue:  1024,
 
 	Lifetime: 3 * time.Hour,
+
+	BlacklistURL:            "",
+	UpdateBlacklistInterval: 10 * time.Minute,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -209,6 +214,12 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultTxPoolConfig.Lifetime)
 		conf.Lifetime = DefaultTxPoolConfig.Lifetime
 	}
+
+	if conf.UpdateBlacklistInterval < time.Second*1 {
+		log.Warn("Sanitizing invalid txpool blacklist update interval", "provided", conf.UpdateBlacklistInterval, "updated", DefaultTxPoolConfig.UpdateBlacklistInterval)
+		conf.UpdateBlacklistInterval = DefaultTxPoolConfig.UpdateBlacklistInterval
+	}
+
 	return conf
 }
 
@@ -243,6 +254,8 @@ type TxPool struct {
 	beats   map[common.Address]time.Time // Last heartbeat from each known account
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
+
+	blackList *blackList //validate tx by black list
 
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
@@ -281,6 +294,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		reorgDoneCh:     make(chan chan struct{}),
 		reorgShutdownCh: make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
+		blackList:       newBlackList(),
 	}
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
@@ -311,7 +325,68 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.wg.Add(1)
 	go pool.loop()
 
+	go pool.loopBlacklist()
+
 	return pool
+}
+
+func (pool *TxPool) loopBlacklist() {
+
+	var (
+		blackList = time.NewTicker(1)
+		client    = &http.Client{
+			Timeout: pool.config.UpdateBlacklistInterval / 10,
+		}
+	)
+	defer blackList.Stop()
+
+	for {
+		select {
+		// Update black list
+		case <-blackList.C:
+			blackList = time.NewTicker(pool.config.UpdateBlacklistInterval)
+
+			if pool.config.BlacklistURL == "" {
+				log.Warn("Blacklist url not configed")
+				continue
+			}
+
+			resp, err := client.Get(pool.config.BlacklistURL)
+			if err != nil {
+				log.Warn("Failed to request blacklist", "err", err)
+				continue
+			}
+			if resp == nil {
+				log.Warn("Failed to request blacklist, response is null")
+				continue
+			}
+			if resp.StatusCode != 200 {
+				log.Warn("Failed to request blacklist", "status code", resp.StatusCode)
+				continue
+			}
+
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Warn("Failed to request blacklist", "err", err)
+				continue
+			}
+
+			newList := Result{}
+
+			err = json.Unmarshal(body, &newList)
+			if err != nil {
+				log.Warn("Failed to request blacklist", "err", err)
+				continue
+			}
+
+			if newList.Code != 0 {
+				log.Warn("Failed to request blacklist", "response code", newList.Code)
+				continue
+			}
+			pool.blackList.update(newList.List)
+		}
+	}
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -557,11 +632,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	//traffic control
+	if exist, limit, err := pool.blackList.check(from, fromAddr); (exist && tx.GasPrice().Cmp(limit) < 0) || err != nil {
+		return ErrBlackListPrice
+	}
+
 	if tx.To() != nil {
-		if _, ok := backListToAddrs[*tx.To()]; ok {
-			if tx.GasPrice().Cmp(big.NewInt(params.GWei*500)) < 0 {
-				return ErrBlackListPrice
-			}
+		if exist, limit, err := pool.blackList.check(*tx.To(), toAddr); (exist && tx.GasPrice().Cmp(limit) < 0) || err != nil {
+			return ErrBlackListPrice
 		}
 	}
 
