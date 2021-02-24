@@ -116,15 +116,15 @@ func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount int, last
 }
 
 // GasPricePrediction returns a suggestion for gas prices of fast, median, low.
-func (s *PublicEthereumAPI) GasPricePrediction(ctx context.Context) (map[string]*hexutil.Big, error) {
+func (s *PublicEthereumAPI) GasPricePrediction(ctx context.Context) (map[string]uint, error) {
 	price, err := s.b.PricePrediction(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]*hexutil.Big{
-		"fast":   (*hexutil.Big)(price[0]),
-		"median": (*hexutil.Big)(price[1]),
-		"low":    (*hexutil.Big)(price[2]),
+	return map[string]uint{
+		"fast":   price[0],
+		"median": price[1],
+		"low":    price[2],
 	}, nil
 }
 

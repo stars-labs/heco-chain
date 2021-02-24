@@ -273,7 +273,7 @@ func (b *LesApiBackend) FeeHistory(ctx context.Context, blockCount int, lastBloc
 	return b.gpo.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 }
 
-func (b *LesApiBackend) PricePrediction(ctx context.Context) ([]*big.Int, error) {
+func (b *LesApiBackend) PricePrediction(ctx context.Context) ([]uint, error) {
 	return nil, errors.New("not implement")
 }
 

@@ -292,7 +292,7 @@ func (b *EthAPIBackend) FeeHistory(ctx context.Context, blockCount int, lastBloc
 	return b.gpo.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 }
 
-func (b *EthAPIBackend) PricePrediction(ctx context.Context) ([]*big.Int, error) {
+func (b *EthAPIBackend) PricePrediction(ctx context.Context) ([]uint, error) {
 	return b.gpp.CurrentPrices(), nil
 }
 
