@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+var tenthGwei = big.NewInt(1e8)
+
 type Prediction struct {
 	cfg          *Config
 	txCnts       *Stats // tx count statistics of few latest blocks
@@ -21,7 +23,7 @@ type Prediction struct {
 	chainHeadSub event.Subscription
 	pool         *core.TxPool
 
-	predis     []*big.Int // gas price prediction, currently will be 3 items, from hight(fast) to low(slow)
+	predis     []uint // gas price prediction in gwei, currently will be 3 items, from hight(fast) to low(slow)
 	lockPredis sync.RWMutex
 	wg         sync.WaitGroup
 }
@@ -33,8 +35,8 @@ func NewPrediction(cfg Config, backend OracleBackend, pool *core.TxPool) *Predic
 		chainHeadCh: make(chan core.ChainHeadEvent),
 		pool:        pool,
 	}
-	price := pool.GasPrice()
-	p.predis = []*big.Int{new(big.Int).Set(price), new(big.Int).Set(price), price}
+	price := wei2GWei(cfg.Default)
+	p.predis = []uint{price * 2, price, price}
 
 	// init txCnts
 	p.initTxCnts()
@@ -56,9 +58,9 @@ func (p *Prediction) Stop() {
 	log.Info("prediction quit")
 }
 
-// CurrentPrices returns the current prediction about gas price;
+// CurrentPrices returns the current prediction about gas price in gwei;
 // the results should be readonly, and the reason didn't do a copy is that there's no necessary
-func (p *Prediction) CurrentPrices() []*big.Int {
+func (p *Prediction) CurrentPrices() []uint {
 	p.lockPredis.RLock()
 	defer p.lockPredis.RUnlock()
 	prices := p.predis
@@ -131,13 +133,13 @@ func (p *Prediction) update() {
 	}
 	sort.Sort(byprice)
 
-	minPrice := p.pool.GasPrice()
-	prices := make([]*big.Int, 3)
+	minPrice := wei2GWei(p.pool.GasPrice())
+	prices := make([]uint, 3)
 
 	pendingCnt := len(byprice)
 	if pendingCnt == 0 {
 		// no pending tx, use minimum prices
-		prices = []*big.Int{new(big.Int).Set(minPrice), new(big.Int).Set(minPrice), minPrice}
+		prices = []uint{minPrice, minPrice, minPrice}
 		p.updatePredis(prices)
 		return
 	}
@@ -152,26 +154,26 @@ func (p *Prediction) update() {
 	if pendingCnt <= fi {
 		fi = pendingCnt * p.cfg.FastPercentile / 100
 	}
-	prices[0] = byprice[fi].GasPrice() // fast price
+	prices[0] = wei2GWei(byprice[fi].GasPrice()) // fast price
 	// median price
 	mi := max(2*avgTxCnt, p.cfg.MaxMedianIndex)
 	if pendingCnt <= mi {
 		mi = pendingCnt * p.cfg.MeidanPercentile / 100
 	}
-	prices[1] = byprice[mi].GasPrice()
+	prices[1] = wei2GWei(byprice[mi].GasPrice())
 
 	// low price, notice the differentce
 	li := max(5*avgTxCnt, p.cfg.MaxLowIndex)
 	if pendingCnt <= li {
 		prices[2] = minPrice
 	} else {
-		prices[2] = byprice[li].GasPrice()
+		prices[2] = wei2GWei(byprice[li].GasPrice())
 	}
 
 	p.updatePredis(prices)
 }
 
-func (p *Prediction) updatePredis(prices []*big.Int) {
+func (p *Prediction) updatePredis(prices []uint) {
 	p.lockPredis.Lock()
 	for i := 0; i < 3; i++ {
 		p.predis[i] = prices[i]
@@ -184,4 +186,15 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func wei2GWei(w *big.Int) uint {
+	if nil == w {
+		return 1
+	}
+	tgwei := new(big.Int).Div(w, tenthGwei).Uint64()
+	if tgwei < 10 {
+		return 1
+	}
+	return (uint(tgwei)*2 - 10) / 10 // rounding
 }

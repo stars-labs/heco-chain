@@ -250,7 +250,7 @@ func (b *LesApiBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
-func (b *LesApiBackend) PricePrediction(ctx context.Context) ([]*big.Int, error) {
+func (b *LesApiBackend) PricePrediction(ctx context.Context) ([]uint, error) {
 	return nil, errors.New("not implement")
 }
 
