@@ -45,6 +45,7 @@ type EthAPIBackend struct {
 	allowUnprotectedTxs bool
 	eth                 *Ethereum
 	gpo                 *gasprice.Oracle
+	gpp           		*gasprice.Prediction
 }
 
 // ChainConfig returns the active chain configuration.
@@ -289,6 +290,10 @@ func (b *EthAPIBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) 
 
 func (b *EthAPIBackend) FeeHistory(ctx context.Context, blockCount int, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (firstBlock rpc.BlockNumber, reward [][]*big.Int, baseFee []*big.Int, gasUsedRatio []float64, err error) {
 	return b.gpo.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
+}
+
+func (b *EthAPIBackend) PricePrediction(ctx context.Context) ([]*big.Int, error) {
+	return b.gpp.CurrentPrices(), nil
 }
 
 func (b *EthAPIBackend) ChainDb() ethdb.Database {

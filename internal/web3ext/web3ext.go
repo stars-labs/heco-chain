@@ -608,6 +608,10 @@ web3._extend({
 			getter: 'eth_maxPriorityFeePerGas',
 			outputFormatter: web3._extend.utils.toBigNumber
 		}),
+		new web3._extend.Property({
+			name: 'gasPricePrediction',
+			getter: 'eth_gasPricePrediction'
+		}),
 	]
 });
 `

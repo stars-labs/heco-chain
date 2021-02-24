@@ -273,6 +273,10 @@ func (b *LesApiBackend) FeeHistory(ctx context.Context, blockCount int, lastBloc
 	return b.gpo.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 }
 
+func (b *LesApiBackend) PricePrediction(ctx context.Context) ([]*big.Int, error) {
+	return nil, errors.New("not implement")
+}
+
 func (b *LesApiBackend) ChainDb() ethdb.Database {
 	return b.eth.chainDb
 }

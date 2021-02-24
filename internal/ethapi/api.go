@@ -115,6 +115,19 @@ func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount int, last
 	return results, nil
 }
 
+// GasPricePrediction returns a suggestion for gas prices of fast, median, low.
+func (s *PublicEthereumAPI) GasPricePrediction(ctx context.Context) (map[string]*hexutil.Big, error) {
+	price, err := s.b.PricePrediction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]*hexutil.Big{
+		"fast":   (*hexutil.Big)(price[0]),
+		"median": (*hexutil.Big)(price[1]),
+		"low":    (*hexutil.Big)(price[2]),
+	}, nil
+}
+
 // Syncing returns false in case the node is currently not syncing with the network. It can be up to date or has not
 // yet received the latest block headers from its pears. In case it is synchronizing:
 // - startingBlock: block number this node started to synchronise from
@@ -1794,7 +1807,6 @@ func metaFeecheck(ctx context.Context, tx *types.Transaction, metaData *types.Me
 	}
 	return nil
 }
-
 
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).

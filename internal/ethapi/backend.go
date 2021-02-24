@@ -43,6 +43,7 @@ type Backend interface {
 	Downloader() *downloader.Downloader
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	FeeHistory(ctx context.Context, blockCount int, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (rpc.BlockNumber, [][]*big.Int, []*big.Int, []float64, error)
+	PricePrediction(ctx context.Context) ([]*big.Int, error)
 	ChainDb() ethdb.Database
 	AccountManager() *accounts.Manager
 	ExtRPCEnabled() bool
