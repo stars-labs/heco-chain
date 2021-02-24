@@ -608,6 +608,10 @@ web3._extend({
 				return formatted;
 			}
 		}),
+		new web3._extend.Property({
+			name: 'gasPricePrediction',
+			getter: 'eth_gasPricePrediction'
+		}),
 	]
 });
 `
