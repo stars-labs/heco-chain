@@ -43,7 +43,7 @@ type Backend interface {
 	Downloader() *downloader.Downloader
 	ProtocolVersion() int
 	SuggestPrice(ctx context.Context) (*big.Int, error)
-	PricePrediction(ctx context.Context) ([]*big.Int, error)
+	PricePrediction(ctx context.Context) ([]uint, error)
 	ChainDb() ethdb.Database
 	AccountManager() *accounts.Manager
 	ExtRPCEnabled() bool

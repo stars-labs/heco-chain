@@ -280,7 +280,7 @@ func (b *EthAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
-func (b *EthAPIBackend) PricePrediction(ctx context.Context) ([]*big.Int, error) {
+func (b *EthAPIBackend) PricePrediction(ctx context.Context) ([]uint, error) {
 	return b.gpp.CurrentPrices(), nil
 }
 
