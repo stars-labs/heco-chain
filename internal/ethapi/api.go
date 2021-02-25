@@ -65,6 +65,19 @@ func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) 
 	return (*hexutil.Big)(price), err
 }
 
+// GasPricePrediction returns a suggestion for gas prices of fast, median, low.
+func (s *PublicEthereumAPI) GasPricePrediction(ctx context.Context) (map[string]uint, error) {
+	price, err := s.b.PricePrediction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]uint{
+		"fast":   price[0],
+		"median": price[1],
+		"low":    price[2],
+	}, nil
+}
+
 // ProtocolVersion returns the current Ethereum protocol version this node supports
 func (s *PublicEthereumAPI) ProtocolVersion() hexutil.Uint {
 	return hexutil.Uint(s.b.ProtocolVersion())
@@ -1681,7 +1694,6 @@ func metaFeecheck(ctx context.Context, tx *types.Transaction, metaData *types.Me
 	}
 	return nil
 }
-
 
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
