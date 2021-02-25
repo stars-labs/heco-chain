@@ -264,7 +264,8 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	stack.RegisterLifecycle(eth)
 
 	// gas price prediction
-	eth.APIBackend.gpp = gasprice.NewPrediction(gpoParams, eth.APIBackend, eth.txPool)
+	gppCfg := checkPricePredictionConfig(&gpoParams)
+	eth.APIBackend.gpp = gasprice.NewPrediction(*gppCfg, eth.APIBackend, eth.txPool)
 
 	// Check for unclean shutdown
 	if uncleanShutdowns, discards, err := rawdb.PushUncleanShutdownMarker(chainDb); err != nil {
@@ -280,6 +281,33 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 	return eth, nil
+}
+
+func checkPricePredictionConfig(cfg *gasprice.Config) *gasprice.Config {
+	if cfg == nil {
+		cfg1 := DefaultFullGPOConfig
+		return &cfg1
+	}
+	if cfg.PredictIntervalSecs == 0 {
+		cfg.PredictIntervalSecs = DefaultFullGPOConfig.PredictIntervalSecs
+	}
+	if cfg.MinTxCntPerBlock == 0 {
+		cfg.MinTxCntPerBlock = DefaultFullGPOConfig.MinTxCntPerBlock
+	}
+
+	if cfg.MaxMedianIndex == 0 {
+		cfg.MaxMedianIndex = DefaultFullGPOConfig.MaxMedianIndex
+	}
+	if cfg.MaxLowIndex == 0 {
+		cfg.MaxLowIndex = DefaultFullGPOConfig.MaxLowIndex
+	}
+	if cfg.FastPercentile == 0 {
+		cfg.FastPercentile = DefaultFullGPOConfig.FastPercentile
+	}
+	if cfg.MeidanPercentile == 0 {
+		cfg.MeidanPercentile = DefaultFullGPOConfig.MeidanPercentile
+	}
+	return cfg
 }
 
 func makeExtraData(extra []byte) []byte {
