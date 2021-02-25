@@ -29,6 +29,12 @@ type Prediction struct {
 }
 
 func NewPrediction(cfg Config, backend OracleBackend, pool *core.TxPool) *Prediction {
+	if cfg.Blocks == 0 {
+		//some test case offers no config
+		return &Prediction{
+			predis: make([]uint, 3),
+		}
+	}
 	p := &Prediction{
 		cfg:         &cfg,
 		backend:     backend,
@@ -53,6 +59,9 @@ func NewPrediction(cfg Config, backend OracleBackend, pool *core.TxPool) *Predic
 
 // Stop stops the prediction loop
 func (p *Prediction) Stop() {
+	if p.chainHeadSub == nil {
+		return
+	}
 	p.chainHeadSub.Unsubscribe()
 	p.wg.Wait()
 	log.Info("prediction quit")
