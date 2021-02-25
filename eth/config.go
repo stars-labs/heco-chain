@@ -161,7 +161,7 @@ type Config struct {
 	TrieCleanCacheJournal   string        `toml:",omitempty"` // Disk journal directory for trie cache to survive node restarts
 	TrieCleanCacheRejournal time.Duration `toml:",omitempty"` // Time interval to regenerate the journal for clean cache
 	TrieDirtyCache          int
-	TrieTimeout             time.Duration
+	TrieTimeout             time.Duration `toml:",omitempty"`
 	SnapshotCache           int
 
 	// Mining options
