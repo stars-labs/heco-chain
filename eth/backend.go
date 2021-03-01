@@ -295,17 +295,26 @@ func checkPricePredictionConfig(cfg *gasprice.Config) *gasprice.Config {
 		cfg.MinTxCntPerBlock = DefaultFullGPOConfig.MinTxCntPerBlock
 	}
 
-	if cfg.MaxMedianIndex == 0 {
-		cfg.MaxMedianIndex = DefaultFullGPOConfig.MaxMedianIndex
+	if cfg.MinMedianIndex == 0 {
+		cfg.MinMedianIndex = DefaultFullGPOConfig.MinMedianIndex
 	}
-	if cfg.MaxLowIndex == 0 {
-		cfg.MaxLowIndex = DefaultFullGPOConfig.MaxLowIndex
+	if cfg.MinLowIndex == 0 {
+		cfg.MinLowIndex = DefaultFullGPOConfig.MinLowIndex
 	}
 	if cfg.FastPercentile == 0 {
 		cfg.FastPercentile = DefaultFullGPOConfig.FastPercentile
 	}
 	if cfg.MeidanPercentile == 0 {
 		cfg.MeidanPercentile = DefaultFullGPOConfig.MeidanPercentile
+	}
+	if cfg.FastFactor == 0 {
+		cfg.FastFactor = DefaultFullGPOConfig.FastFactor
+	}
+	if cfg.MedianFactor == 0 {
+		cfg.MedianFactor = DefaultFullGPOConfig.MedianFactor
+	}
+	if cfg.LowFactor == 0 {
+		cfg.LowFactor = DefaultFullGPOConfig.LowFactor
 	}
 	return cfg
 }

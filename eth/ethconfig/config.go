@@ -48,12 +48,7 @@ var FullNodeGPO = gasprice.Config{
 	MaxPrice:         gasprice.DefaultMaxPrice,
 	IgnorePrice:      gasprice.DefaultIgnorePrice,
 
-	PredictIntervalSecs: 3, // in seconds
-	MinTxCntPerBlock:    100,
-	MaxMedianIndex:      500,
-	MaxLowIndex:         1000,
-	FastPercentile:      75,
-	MeidanPercentile:    90,
+	PredConfig: DefaultPredictionConfig,
 }
 
 // LightClientGPO contains default gasprice oracle settings for light client.
@@ -65,10 +60,17 @@ var LightClientGPO = gasprice.Config{
 	MaxPrice:         gasprice.DefaultMaxPrice,
 	IgnorePrice:      gasprice.DefaultIgnorePrice,
 
+	PredConfig: DefaultPredictionConfig,
+}
+
+var DefaultPredictionConfig = gasprice.PredConfig{
 	PredictIntervalSecs: 3, // in seconds
 	MinTxCntPerBlock:    100,
-	MaxMedianIndex:      500,
-	MaxLowIndex:         1000,
+	FastFactor:          2,
+	MedianFactor:        5,
+	LowFactor:           8,
+	MinMedianIndex:      500,
+	MinLowIndex:         1000,
 	FastPercentile:      75,
 	MeidanPercentile:    90,
 }

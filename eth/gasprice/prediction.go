@@ -29,7 +29,7 @@ type Prediction struct {
 }
 
 func NewPrediction(cfg Config, backend OracleBackend, pool *core.TxPool) *Prediction {
-	if cfg.Blocks == 0 {
+	if cfg.Blocks == 0 || cfg.FastFactor == 0 {
 		//some test case offers no config
 		return &Prediction{
 			predis: make([]uint, 3),
@@ -52,8 +52,9 @@ func NewPrediction(cfg Config, backend OracleBackend, pool *core.TxPool) *Predic
 	p.wg.Add(1)
 	go p.loop()
 
-	log.Info("Prediction started", "checkBlocks", cfg.Blocks, "PredictIntervalSecs", cfg.PredictIntervalSecs, "MaxMedianIndex", cfg.MaxMedianIndex, "MaxLowIndex", cfg.MaxLowIndex,
-		"FastPercentile", cfg.FastPercentile, "MeidanPercentile", cfg.MeidanPercentile, "MinTxCntPerBlock", cfg.MinTxCntPerBlock)
+	log.Info("Prediction started", "checkBlocks", cfg.Blocks, "Interval", cfg.PredictIntervalSecs,
+		"ff", cfg.FastFactor, "mf", cfg.MedianFactor, "lf", cfg.LowFactor, "minMi", cfg.MinMedianIndex,
+		"minLi", cfg.MinLowIndex, "fp", cfg.FastPercentile, "mp", cfg.MeidanPercentile, "minCnt", cfg.MinTxCntPerBlock)
 	return p
 }
 
@@ -159,20 +160,25 @@ func (p *Prediction) update() {
 	}
 
 	// fast price
-	fi := avgTxCnt
+	fi := p.cfg.FastFactor * avgTxCnt
 	if pendingCnt <= fi {
 		fi = pendingCnt * p.cfg.FastPercentile / 100
 	}
 	prices[0] = wei2GWei(byprice[fi].GasPrice()) // fast price
+	// if the fast price is 1 gwei, and there are lots of pending transactions,
+	// then raise the fast price to 2 gwei.
+	if prices[0] == 1 && pendingCnt > fi {
+		prices[0] = 2
+	}
 	// median price
-	mi := max(2*avgTxCnt, p.cfg.MaxMedianIndex)
+	mi := max(p.cfg.MedianFactor*avgTxCnt, p.cfg.MinMedianIndex)
 	if pendingCnt <= mi {
 		mi = pendingCnt * p.cfg.MeidanPercentile / 100
 	}
 	prices[1] = wei2GWei(byprice[mi].GasPrice())
 
 	// low price, notice the differentce
-	li := max(5*avgTxCnt, p.cfg.MaxLowIndex)
+	li := max(p.cfg.LowFactor*avgTxCnt, p.cfg.MinLowIndex)
 	if pendingCnt <= li {
 		prices[2] = minPrice
 	} else {
