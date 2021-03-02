@@ -138,7 +138,7 @@ func (indexer *TxJamIndexer) updateLoop() {
 			indexer.currentJamIndex = idx
 			indexer.jamLock.Unlock()
 			jamIndexMeter.Mark(int64(idx))
-			log.Trace("TxJamIndexer", "jamIndex", idx)
+			log.Trace("TxJamIndexer", "jamIndex", idx, "d", d, "p", p, "n", nTotal)
 		case <-indexer.quit:
 			return
 		}

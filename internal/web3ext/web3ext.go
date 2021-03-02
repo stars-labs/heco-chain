@@ -810,6 +810,10 @@ web3._extend({
 				return status;
 			}
 		}),
+		new web3._extend.Property({
+			name: 'jamIndex',
+			getter: 'txpool_jamIndex'
+		}),
 	]
 });
 `
