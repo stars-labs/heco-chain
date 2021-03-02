@@ -156,6 +156,8 @@ type TxPoolConfig struct {
 
 	BlacklistURL            string
 	UpdateBlacklistInterval time.Duration
+
+	JamConfig TxJamConfig
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -176,6 +178,8 @@ var DefaultTxPoolConfig = TxPoolConfig{
 
 	BlacklistURL:            "",
 	UpdateBlacklistInterval: 10 * time.Minute,
+
+	JamConfig: DefaultJamConfig,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -257,6 +261,8 @@ type TxPool struct {
 
 	blackList *blackList //validate tx by black list
 
+	jamIndexer *TxJamIndexer // tx jam indexer
+
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
 	reqResetCh      chan *txpoolResetRequest
@@ -295,6 +301,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		reorgShutdownCh: make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 		blackList:       newBlackList(),
+		jamIndexer:      NewTxJamIndexer(config.JamConfig),
 	}
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
@@ -474,6 +481,8 @@ func (pool *TxPool) Stop() {
 	// Unsubscribe subscriptions registered from blockchain
 	pool.chainHeadSub.Unsubscribe()
 	pool.wg.Wait()
+
+	pool.jamIndexer.Stop()
 
 	if pool.journal != nil {
 		pool.journal.close()
@@ -680,6 +689,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		if !local && pool.priced.Underpriced(tx, pool.locals) {
 			log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
 			underpricedTxMeter.Mark(1)
+			pool.jamIndexer.UnderPricedInc()
 			return false, ErrUnderpriced
 		}
 		// New transaction is better than our worse ones, make room for it
@@ -687,6 +697,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		for _, tx := range drop {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
 			underpricedTxMeter.Mark(1)
+			pool.jamIndexer.UnderPricedInc()
 			pool.removeTx(tx.Hash(), false)
 		}
 	}
@@ -1003,6 +1014,9 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
 			// Reduce the pending counter
 			pendingGauge.Dec(int64(1 + len(invalids)))
+			txs := invalids
+			txs = append(txs, tx)
+			pool.jamIndexer.PendingOut(txs)
 			return
 		}
 	}
@@ -1338,6 +1352,9 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 			delete(pool.beats, addr)
 		}
 	}
+	//send pending txs to jam indexer
+	pool.jamIndexer.PendingIn(promoted)
+
 	return promoted
 }
 
@@ -1391,6 +1408,7 @@ func (pool *TxPool) truncatePending() {
 					}
 					pool.priced.Removed(len(caps))
 					pendingGauge.Dec(int64(len(caps)))
+					pool.jamIndexer.PendingOut(caps)
 					if pool.locals.contains(offenders[i]) {
 						localGauge.Dec(int64(len(caps)))
 					}
@@ -1418,6 +1436,7 @@ func (pool *TxPool) truncatePending() {
 				}
 				pool.priced.Removed(len(caps))
 				pendingGauge.Dec(int64(len(caps)))
+				pool.jamIndexer.PendingOut(caps)
 				if pool.locals.contains(addr) {
 					localGauge.Dec(int64(len(caps)))
 				}
@@ -1503,9 +1522,16 @@ func (pool *TxPool) demoteUnexecutables() {
 			log.Trace("Demoting pending transaction", "hash", hash)
 			pool.enqueueTx(hash, tx)
 		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+		ln := len(olds) + len(drops) + len(invalids)
+		pendingGauge.Dec(int64(ln))
+		pendingOut := make(types.Transactions, ln)
+		copy(pendingOut, olds)
+		copy(pendingOut[len(olds):], drops)
+		copy(pendingOut[len(olds)+len(drops):], invalids)
+		pool.jamIndexer.PendingOut(pendingOut)
+
 		if pool.locals.contains(addr) {
-			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+			localGauge.Dec(int64(ln))
 		}
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
@@ -1516,6 +1542,7 @@ func (pool *TxPool) demoteUnexecutables() {
 				pool.enqueueTx(hash, tx)
 			}
 			pendingGauge.Dec(int64(len(gapped)))
+			pool.jamIndexer.PendingOut(gapped)
 			// This might happen in a reorg, so log it to the metering
 			blockReorgInvalidatedTx.Mark(int64(len(gapped)))
 		}
