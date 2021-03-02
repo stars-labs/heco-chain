@@ -7,6 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
+)
+
+var (
+	jamIndexMeter = metrics.NewRegisteredMeter("txpool/jamindex", nil)
 )
 
 var DefaultJamConfig = TxJamConfig{
@@ -132,6 +137,7 @@ func (indexer *TxJamIndexer) updateLoop() {
 			indexer.jamLock.Lock()
 			indexer.currentJamIndex = idx
 			indexer.jamLock.Unlock()
+			jamIndexMeter.Mark(int64(idx))
 			log.Trace("TxJamIndexer", "jamIndex", idx)
 		case <-indexer.quit:
 			return
