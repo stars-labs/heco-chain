@@ -301,8 +301,8 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		reorgShutdownCh: make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 		blackList:       newBlackList(),
-		jamIndexer:      NewTxJamIndexer(config.JamConfig),
 	}
+	pool.jamIndexer = NewTxJamIndexer(config.JamConfig, pool)
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
@@ -422,6 +422,7 @@ func (pool *TxPool) loop() {
 			if ev.Block != nil {
 				pool.requestReset(head.Header(), ev.Block.Header())
 				head = ev.Block
+				pool.jamIndexer.UpdateHeader(head.Header())
 			}
 
 		// System shutdown.
@@ -1019,9 +1020,6 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
 			// Reduce the pending counter
 			pendingGauge.Dec(int64(1 + len(invalids)))
-			txs := invalids
-			txs = append(txs, tx)
-			pool.jamIndexer.PendingOut(txs)
 			return
 		}
 	}
@@ -1357,8 +1355,6 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 			delete(pool.beats, addr)
 		}
 	}
-	//send pending txs to jam indexer
-	pool.jamIndexer.PendingIn(promoted)
 
 	return promoted
 }
@@ -1413,7 +1409,6 @@ func (pool *TxPool) truncatePending() {
 					}
 					pool.priced.Removed(len(caps))
 					pendingGauge.Dec(int64(len(caps)))
-					pool.jamIndexer.PendingOut(caps)
 					if pool.locals.contains(offenders[i]) {
 						localGauge.Dec(int64(len(caps)))
 					}
@@ -1441,7 +1436,6 @@ func (pool *TxPool) truncatePending() {
 				}
 				pool.priced.Removed(len(caps))
 				pendingGauge.Dec(int64(len(caps)))
-				pool.jamIndexer.PendingOut(caps)
 				if pool.locals.contains(addr) {
 					localGauge.Dec(int64(len(caps)))
 				}
@@ -1529,11 +1523,6 @@ func (pool *TxPool) demoteUnexecutables() {
 		}
 		ln := len(olds) + len(drops) + len(invalids)
 		pendingGauge.Dec(int64(ln))
-		pendingOut := make(types.Transactions, ln)
-		copy(pendingOut, olds)
-		copy(pendingOut[len(olds):], drops)
-		copy(pendingOut[len(olds)+len(drops):], invalids)
-		pool.jamIndexer.PendingOut(pendingOut)
 
 		if pool.locals.contains(addr) {
 			localGauge.Dec(int64(ln))
@@ -1547,7 +1536,6 @@ func (pool *TxPool) demoteUnexecutables() {
 				pool.enqueueTx(hash, tx)
 			}
 			pendingGauge.Dec(int64(len(gapped)))
-			pool.jamIndexer.PendingOut(gapped)
 			// This might happen in a reorg, so log it to the metering
 			blockReorgInvalidatedTx.Mark(int64(len(gapped)))
 		}

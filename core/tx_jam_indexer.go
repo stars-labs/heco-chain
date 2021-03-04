@@ -1,6 +1,8 @@
 package core
 
 import (
+	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -14,11 +16,13 @@ var (
 	jamIndexMeter = metrics.NewRegisteredMeter("txpool/jamindex", nil)
 )
 
+var oneGwei = big.NewInt(1e9)
+
 var DefaultJamConfig = TxJamConfig{
 	PeriodsSecs:         3,
-	JamSecs:             10,
-	UnderPricedFactor:   5,
-	PendingFactor:       10,
+	JamSecs:             15,
+	UnderPricedFactor:   3,
+	PendingFactor:       1,
 	MaxValidPendingSecs: 300,
 }
 
@@ -56,37 +60,39 @@ func (c *TxJamConfig) sanity() TxJamConfig {
 	return cfg
 }
 
+type ipool interface {
+	Pending() (map[common.Address]types.Transactions, error)
+}
+
 // TxJamIndexer try to give a quantitative index to reflects the tx-jam.
 type TxJamIndexer struct {
-	cfg TxJamConfig
+	cfg  TxJamConfig
+	pool ipool
+	head *types.Header
 
 	undCounter      *underPricedCounter
-	pendingTxs      map[common.Hash]time.Time //the time a tx was promoted to the pending list
 	currentJamIndex int
 
 	pendingLock sync.Mutex
 	jamLock     sync.RWMutex
 
-	quit  chan struct{}
-	inCh  chan types.Transactions
-	outCh chan types.Transactions
+	quit        chan struct{}
+	chainHeadCh chan *types.Header
 }
 
-func NewTxJamIndexer(cfg TxJamConfig) *TxJamIndexer {
+func NewTxJamIndexer(cfg TxJamConfig, pool ipool) *TxJamIndexer {
 	cfg = (&cfg).sanity()
 	//todo
 
 	indexer := &TxJamIndexer{
-		cfg:        cfg,
-		undCounter: newUnderPricedCounter(cfg.PeriodsSecs),
-		pendingTxs: make(map[common.Hash]time.Time),
-		quit:       make(chan struct{}),
-		inCh:       make(chan types.Transactions, 10),
-		outCh:      make(chan types.Transactions, 10),
+		cfg:         cfg,
+		pool:        pool,
+		undCounter:  newUnderPricedCounter(cfg.PeriodsSecs),
+		quit:        make(chan struct{}),
+		chainHeadCh: make(chan *types.Header, 1),
 	}
 
 	go indexer.updateLoop()
-	go indexer.mainLoop()
 
 	return indexer
 }
@@ -110,23 +116,45 @@ func (indexer *TxJamIndexer) updateLoop() {
 
 	for {
 		select {
+		case h := <-indexer.chainHeadCh:
+			indexer.head = h
 		case <-tick.C:
 			d := indexer.undCounter.Sum()
-			indexer.pendingLock.Lock()
-			nTotal := len(indexer.pendingTxs)
+			pendings, _ := indexer.pool.Pending()
+			if d == 0 && len(pendings) == 0 {
+				break
+			}
+			// flatten
 			var p int
-			now := time.Now()
 			max := indexer.cfg.MaxValidPendingSecs
 			jamsecs := indexer.cfg.JamSecs
-			for _, start := range indexer.pendingTxs {
-				sec := int(now.Sub(start) / time.Second)
-				if sec <= max && sec >= jamsecs {
-					p += sec / jamsecs
+			maxGas := uint64(10000000)
+			if indexer.head != nil {
+				maxGas = (indexer.head.GasLimit / 10) * 6
+			}
+			durs := make([]time.Duration, 0, 1024)
+			for _, txs := range pendings {
+				for _, tx := range txs {
+					// filtering
+					if tx.GasPrice().Cmp(oneGwei) < 0 ||
+						tx.Gas() > maxGas {
+						continue
+					}
+
+					dur := time.Since(tx.LocalSeenTime())
+					sec := int(dur / time.Second)
+					if sec > max {
+						continue
+					}
+
+					durs = append(durs, dur)
+					if sec >= jamsecs {
+						p += sec / jamsecs
+					}
 				}
 			}
-			indexer.pendingLock.Unlock()
+			nTotal := len(durs)
 
-			log.Trace("TxJamIndexer update lock", "elapse", time.Since(now))
 			if nTotal == 0 {
 				p = 0
 			} else {
@@ -138,44 +166,30 @@ func (indexer *TxJamIndexer) updateLoop() {
 			indexer.currentJamIndex = idx
 			indexer.jamLock.Unlock()
 			jamIndexMeter.Mark(int64(idx))
-			log.Trace("TxJamIndexer", "jamIndex", idx, "d", d, "p", p, "n", nTotal)
+
+			var dists []time.Duration
+			sort.Slice(durs, func(i, j int) bool {
+				return durs[i] < durs[j]
+			})
+			if nTotal > 10 {
+				dists = append(dists, durs[0])
+				for i := 1; i < 10; i++ {
+					dists = append(dists, durs[nTotal*i/10])
+				}
+				dists = append(dists, durs[nTotal-1])
+			} else {
+				dists = durs
+			}
+
+			log.Trace("TxJamIndexer", "jamIndex", idx, "d", d, "p", p, "n", nTotal, "dists", dists)
 		case <-indexer.quit:
 			return
 		}
 	}
 }
 
-func (indexer *TxJamIndexer) mainLoop() {
-	for {
-		select {
-		case <-indexer.quit:
-			return
-		case txs := <-indexer.inCh:
-			if len(txs) > 0 {
-				indexer.pendingLock.Lock()
-				for _, tx := range txs {
-					indexer.pendingTxs[tx.Hash()] = time.Now()
-				}
-				indexer.pendingLock.Unlock()
-			}
-		case txs := <-indexer.outCh:
-			if len(txs) > 0 {
-				indexer.pendingLock.Lock()
-				for _, tx := range txs {
-					delete(indexer.pendingTxs, tx.Hash())
-				}
-				indexer.pendingLock.Unlock()
-			}
-		}
-	}
-}
-
-func (indexer *TxJamIndexer) PendingIn(txs types.Transactions) {
-	indexer.inCh <- txs
-}
-
-func (indexer *TxJamIndexer) PendingOut(txs types.Transactions) {
-	indexer.outCh <- txs
+func (indexer *TxJamIndexer) UpdateHeader(h *types.Header) {
+	indexer.chainHeadCh <- h
 }
 
 func (indexer *TxJamIndexer) UnderPricedInc() {
