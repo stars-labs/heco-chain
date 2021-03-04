@@ -267,6 +267,9 @@ func checkPricePredictionConfig(cfg *gasprice.Config) *gasprice.Config {
 	if cfg.LowFactor == 0 {
 		cfg.LowFactor = DefaultFullGPOConfig.LowFactor
 	}
+	if cfg.MaxValidPendingSecs == 0 {
+		cfg.MaxValidPendingSecs = DefaultFullGPOConfig.MaxValidPendingSecs
+	}
 	return cfg
 }
 
