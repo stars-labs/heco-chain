@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -60,14 +59,10 @@ func (c *TxJamConfig) sanity() TxJamConfig {
 	return cfg
 }
 
-type ipool interface {
-	Pending() (map[common.Address]types.Transactions, error)
-}
-
-// TxJamIndexer try to give a quantitative index to reflects the tx-jam.
-type TxJamIndexer struct {
+// txJamIndexer try to give a quantitative index to reflects the tx-jam.
+type txJamIndexer struct {
 	cfg  TxJamConfig
-	pool ipool
+	pool *TxPool
 	head *types.Header
 
 	undCounter      *underPricedCounter
@@ -80,11 +75,10 @@ type TxJamIndexer struct {
 	chainHeadCh chan *types.Header
 }
 
-func NewTxJamIndexer(cfg TxJamConfig, pool ipool) *TxJamIndexer {
+func newTxJamIndexer(cfg TxJamConfig, pool *TxPool) *txJamIndexer {
 	cfg = (&cfg).sanity()
-	//todo
 
-	indexer := &TxJamIndexer{
+	indexer := &txJamIndexer{
 		cfg:         cfg,
 		pool:        pool,
 		undCounter:  newUnderPricedCounter(cfg.PeriodsSecs),
@@ -98,19 +92,19 @@ func NewTxJamIndexer(cfg TxJamConfig, pool ipool) *TxJamIndexer {
 }
 
 // Stop stops the loop goroutines of this TxJamIndexer
-func (indexer *TxJamIndexer) Stop() {
+func (indexer *txJamIndexer) Stop() {
 	indexer.undCounter.Stop()
 	close(indexer.quit)
 }
 
 // JamIndex returns the current jam index
-func (indexer *TxJamIndexer) JamIndex() int {
+func (indexer *txJamIndexer) JamIndex() int {
 	indexer.jamLock.RLock()
 	defer indexer.jamLock.RUnlock()
 	return indexer.currentJamIndex
 }
 
-func (indexer *TxJamIndexer) updateLoop() {
+func (indexer *txJamIndexer) updateLoop() {
 	tick := time.NewTicker(time.Second * time.Duration(indexer.cfg.PeriodsSecs))
 	defer tick.Stop()
 
@@ -188,11 +182,11 @@ func (indexer *TxJamIndexer) updateLoop() {
 	}
 }
 
-func (indexer *TxJamIndexer) UpdateHeader(h *types.Header) {
+func (indexer *txJamIndexer) UpdateHeader(h *types.Header) {
 	indexer.chainHeadCh <- h
 }
 
-func (indexer *TxJamIndexer) UnderPricedInc() {
+func (indexer *txJamIndexer) UnderPricedInc() {
 	indexer.undCounter.Inc()
 }
 

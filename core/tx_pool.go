@@ -261,7 +261,7 @@ type TxPool struct {
 
 	blackList *blackList //validate tx by black list
 
-	jamIndexer *TxJamIndexer // tx jam indexer
+	jamIndexer *txJamIndexer // tx jam indexer
 
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
@@ -302,7 +302,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 		blackList:       newBlackList(),
 	}
-	pool.jamIndexer = NewTxJamIndexer(config.JamConfig, pool)
+	pool.jamIndexer = newTxJamIndexer(config.JamConfig, pool)
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
