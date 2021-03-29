@@ -22,4 +22,6 @@ type PredConfig struct {
 
 	FastPercentile   int //fast percentile for the case there are no many pending transactions
 	MeidanPercentile int
+
+	MaxValidPendingSecs int
 }
