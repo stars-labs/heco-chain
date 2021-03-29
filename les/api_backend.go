@@ -226,6 +226,10 @@ func (b *LesApiBackend) TxPoolContentFrom(addr common.Address) (types.Transactio
 	return b.eth.txPool.ContentFrom(addr)
 }
 
+func (b *LesApiBackend) JamIndex() int {
+	return 0 // not implement
+}
+
 func (b *LesApiBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
 	return b.eth.txPool.SubscribeNewTxsEvent(ch)
 }

@@ -45,7 +45,7 @@ type EthAPIBackend struct {
 	allowUnprotectedTxs bool
 	eth                 *Ethereum
 	gpo                 *gasprice.Oracle
-	gpp           		*gasprice.Prediction
+	gpp                 *gasprice.Prediction
 }
 
 // ChainConfig returns the active chain configuration.
@@ -270,6 +270,10 @@ func (b *EthAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, 
 
 func (b *EthAPIBackend) TxPoolContentFrom(addr common.Address) (types.Transactions, types.Transactions) {
 	return b.eth.TxPool().ContentFrom(addr)
+}
+
+func (b *EthAPIBackend) JamIndex() int {
+	return b.eth.TxPool().JamIndex()
 }
 
 func (b *EthAPIBackend) TxPool() *core.TxPool {

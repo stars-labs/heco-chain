@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -254,6 +255,49 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		content["queued"][account.Hex()] = dump
 	}
 	return content
+}
+
+func (s *PublicTxPoolAPI) Inspect2() map[string][]string {
+
+	pending, queue := s.b.TxPoolContent()
+
+	now := time.Now()
+	format := func(p map[common.Address]types.Transactions) []string {
+		listp := make([]*types.Transaction, 0, 1024)
+		froms := make(map[common.Hash]common.Address)
+		for from, txs := range p {
+			for _, tx := range txs {
+				listp = append(listp, tx)
+				froms[tx.Hash()] = from
+			}
+		}
+
+		sort.Slice(listp, func(i, j int) bool {
+			return listp[i].LocalSeenTime().Before(listp[j].LocalSeenTime())
+		})
+
+		res := make([]string, 0, len(listp))
+		for _, tx := range listp {
+			to := "nil"
+			if toaddr := tx.To(); toaddr != nil {
+				to = toaddr.String()
+			}
+			str := fmt.Sprintf("from=%s, to=%s, nonce=%d, value=%v, gas=%v, price=%v, dur=%v, lenInput=%d",
+				froms[tx.Hash()].String(), to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), now.Sub(tx.LocalSeenTime()), len(tx.Data()))
+			res = append(res, str)
+		}
+		return res
+	}
+	content := map[string][]string{
+		"pending": format(pending),
+		"queued":  format(queue),
+	}
+
+	return content
+}
+
+func (s *PublicTxPoolAPI) JamIndex() int {
+	return s.b.JamIndex()
 }
 
 // PublicAccountAPI provides an API to access accounts managed by this node.

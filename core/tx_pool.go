@@ -156,6 +156,8 @@ type TxPoolConfig struct {
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+
+	JamConfig TxJamConfig
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -173,6 +175,8 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	GlobalQueue:  1024,
 
 	Lifetime: 3 * time.Hour,
+
+	JamConfig: DefaultJamConfig,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -248,6 +252,8 @@ type TxPool struct {
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
 
+	jamIndexer *txJamIndexer // tx jam indexer
+
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
 	reqResetCh      chan *txpoolResetRequest
@@ -286,6 +292,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		reorgShutdownCh: make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 	}
+	pool.jamIndexer = newTxJamIndexer(config.JamConfig, pool)
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
@@ -344,6 +351,7 @@ func (pool *TxPool) loop() {
 			if ev.Block != nil {
 				pool.requestReset(head.Header(), ev.Block.Header())
 				head = ev.Block
+				pool.jamIndexer.UpdateHeader(head.Header())
 			}
 
 		// System shutdown.
@@ -403,6 +411,8 @@ func (pool *TxPool) Stop() {
 	// Unsubscribe subscriptions registered from blockchain
 	pool.chainHeadSub.Unsubscribe()
 	pool.wg.Wait()
+
+	pool.jamIndexer.Stop()
 
 	if pool.journal != nil {
 		pool.journal.close()
@@ -550,6 +560,11 @@ func (pool *TxPool) Locals() []common.Address {
 	return pool.locals.flatten()
 }
 
+// JamIndex returns the jam index which is evaluated by current pending transactions.
+func (pool *TxPool) JamIndex() int {
+	return pool.jamIndexer.JamIndex()
+}
+
 // local retrieves all currently known local transactions, grouped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
@@ -661,6 +676,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		if !isLocal && pool.priced.Underpriced(tx) {
 			log.Trace("Discarding underpriced transaction", "hash", hash, "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
 			underpricedTxMeter.Mark(1)
+			pool.jamIndexer.UnderPricedInc()
 			return false, ErrUnderpriced
 		}
 		// New transaction is better than our worse ones, make room for it.
@@ -678,6 +694,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		for _, tx := range drop {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
 			underpricedTxMeter.Mark(1)
+			pool.jamIndexer.UnderPricedInc()
 			pool.removeTx(tx.Hash(), false)
 		}
 	}
@@ -1506,9 +1523,11 @@ func (pool *TxPool) demoteUnexecutables() {
 			// Internal shuffle shouldn't touch the lookup set.
 			pool.enqueueTx(hash, tx, false, false)
 		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+		ln := len(olds) + len(drops) + len(invalids)
+		pendingGauge.Dec(int64(ln))
+
 		if pool.locals.contains(addr) {
-			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+			localGauge.Dec(int64(ln))
 		}
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
