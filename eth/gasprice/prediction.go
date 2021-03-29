@@ -13,7 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-var tenthGwei = big.NewInt(1e8)
+var (
+	tenthGwei = big.NewInt(1e8)
+	gwei      = big.NewInt(1e9)
+)
 
 type Prediction struct {
 	cfg          *Config
@@ -23,9 +26,10 @@ type Prediction struct {
 	chainHeadSub event.Subscription
 	pool         *core.TxPool
 
-	predis     []uint // gas price prediction in gwei, currently will be 3 items, from hight(fast) to low(slow)
-	lockPredis sync.RWMutex
-	wg         sync.WaitGroup
+	predis        []uint // gas price prediction in gwei, currently will be 3 items, from hight(fast) to low(slow)
+	lockPredis    sync.RWMutex
+	wg            sync.WaitGroup
+	blockGasLimit uint64
 }
 
 func NewPrediction(cfg Config, backend OracleBackend, pool *core.TxPool) *Prediction {
@@ -106,6 +110,9 @@ func (p *Prediction) initTxCnts() {
 		}
 	}
 	p.txCnts = NewStats(cnts)
+
+	//gas limit
+	p.blockGasLimit = head.GasLimit
 }
 
 func (p *Prediction) loop() {
@@ -124,6 +131,7 @@ func (p *Prediction) loop() {
 			head := ev.Block
 			txcnt := len(head.Transactions())
 			p.txCnts.Add(txcnt)
+			p.blockGasLimit = head.GasLimit()
 		case <-p.chainHeadSub.Err():
 			log.Warn("prediction loop quitting")
 			return
@@ -141,6 +149,7 @@ func (p *Prediction) update() {
 	for _, ts := range txs {
 		byprice = append(byprice, ts...)
 	}
+	byprice = p.filteroutInvalid(byprice)
 	sort.Sort(byprice)
 
 	minPrice := wei2GWei(p.pool.GasPrice())
@@ -184,8 +193,33 @@ func (p *Prediction) update() {
 	} else {
 		prices[2] = wei2GWei(byprice[li].GasPrice())
 	}
+	// make it more moderation
+	if pendingCnt > mi &&
+		prices[0] > prices[1]+1 &&
+		prices[1] == prices[2] {
+		prices[1]++
+	}
 
 	p.updatePredis(prices)
+}
+
+func (p *Prediction) filteroutInvalid(txs TxByPrice) TxByPrice {
+	maxgas := (p.blockGasLimit / 10) * 6
+	maxlive := time.Duration(p.cfg.MaxValidPendingSecs) * time.Second
+	i, j := 0, len(txs)
+	for i < j {
+		tx := txs[i]
+		if tx.Gas() > maxgas ||
+			time.Since(tx.LocalSeenTime()) > maxlive ||
+			tx.GasPriceIntCmp(gwei) < 0 {
+			j--
+			txs[i], txs[j] = txs[j], txs[i]
+			continue
+		}
+		//valid
+		i++
+	}
+	return txs[:j]
 }
 
 func (p *Prediction) updatePredis(prices []uint) {

@@ -73,6 +73,7 @@ var DefaultPredictionConfig = gasprice.PredConfig{
 	MinLowIndex:         1000,
 	FastPercentile:      75,
 	MeidanPercentile:    90,
+	MaxValidPendingSecs: 300,
 }
 
 // Defaults contains default settings for use on the Ethereum main net.
