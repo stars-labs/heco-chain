@@ -1041,7 +1041,20 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, bl
 	return result.Return(), result.Err
 }
 
-func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap uint64) (hexutil.Uint64, error) {
+func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap uint64) (g hexutil.Uint64, e error) {
+	start := time.Now()
+	defer func() {
+		msgCtx := make([]interface{}, 0)
+		msgCtx = append(msgCtx, "estimateGas", time.Since(start))
+		if e != nil {
+			to := ""
+			if args.To != nil {
+				to = args.To.String()
+			}
+			msgCtx = append(msgCtx, "err", e, "to", to)
+		}
+		log.Debug("Time cost", msgCtx...)
+	}()
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo  uint64 = params.TxGas - 1
@@ -1113,6 +1126,23 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 		}
 		return result.Failed(), result, nil
 	}
+	// Reject the transaction as invalid if it still fails at the highest allowance
+
+	failed, result, err := executable(hi)
+	if err != nil {
+		return 0, err
+	}
+	if failed {
+		if result != nil && result.Err != vm.ErrOutOfGas {
+			if len(result.Revert()) > 0 {
+				return 0, newRevertError(result)
+			}
+			return 0, result.Err
+		}
+		// Otherwise, the specified gas cap is too low
+		return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
+	}
+
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
@@ -1129,22 +1159,9 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 		} else {
 			hi = mid
 		}
-	}
-	// Reject the transaction as invalid if it still fails at the highest allowance
-	if hi == cap {
-		failed, result, err := executable(hi)
-		if err != nil {
-			return 0, err
-		}
-		if failed {
-			if result != nil && result.Err != vm.ErrOutOfGas {
-				if len(result.Revert()) > 0 {
-					return 0, newRevertError(result)
-				}
-				return 0, result.Err
-			}
-			// Otherwise, the specified gas cap is too low
-			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
+		//approximately_estimate_gas
+		if hi-lo < 4000 {
+			break
 		}
 	}
 	return hexutil.Uint64(hi), nil
