@@ -260,6 +260,10 @@ func (b *EthAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, 
 	return b.eth.TxPool().Content()
 }
 
+func (b *EthAPIBackend) JamIndex() int {
+	return b.eth.TxPool().JamIndex()
+}
+
 func (b *EthAPIBackend) TxPool() *core.TxPool {
 	return b.eth.TxPool()
 }
