@@ -73,9 +73,12 @@ var (
 	validatorsContractName = "validators"
 	punishContractName     = "punish"
 	proposalContractName   = "proposal"
+	sysGovContractName     = "governance"
 	validatorsContractAddr = common.HexToAddress("0x000000000000000000000000000000000000f000")
 	punishContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f001")
 	proposalAddr           = common.HexToAddress("0x000000000000000000000000000000000000f002")
+	sysGovContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f003")
+	sysGovToAddr           = common.HexToAddress("0x000000000000000000000000000000000000ffff")
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -147,6 +150,8 @@ var (
 
 	// errInvalidCoinbase is returned if the coinbase isn't the validator of the block.
 	errInvalidCoinbase = errors.New("Invalid coin base")
+
+	errInvalidSysGovCount = errors.New("invalid system governance tx count")
 )
 
 // StateFn gets state by the state root hash.
@@ -154,6 +159,7 @@ type StateFn func(hash common.Hash) (*state.StateDB, error)
 
 // ValidatorFn hashes and signs the data to be signed by a backing account.
 type ValidatorFn func(validator accounts.Account, mimeType string, message []byte) ([]byte, error)
+type SignTxFn func(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 // ecrecover extracts the Ethereum account address from a signed header.
 func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, error) {
@@ -192,9 +198,12 @@ type Congress struct {
 
 	proposals map[common.Address]bool // Current list of proposals we are pushing
 
+	signer types.Signer // the signer instance to recover tx sender
+
 	validator common.Address // Ethereum address of the signing key
 	signFn    ValidatorFn    // Validator function to authorize hashes with
-	lock      sync.RWMutex   // Protects the validator fields
+	signTxFn  SignTxFn
+	lock      sync.RWMutex // Protects the validator fields
 
 	stateFn StateFn // Function to get state by state root
 
@@ -226,6 +235,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database) *Congress {
 		signatures:  signatures,
 		proposals:   make(map[common.Address]bool),
 		abi:         abi,
+		signer:      types.NewEIP155Signer(chainConfig.ChainID),
 	}
 }
 
@@ -549,7 +559,7 @@ func (c *Congress) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given.
-func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) error {
+func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt, systemTxs []*types.Transaction) error {
 	// Initialize all system contracts at block 1.
 	if header.Number.Cmp(common.Big1) == 0 {
 		if err := c.initializeSystemContracts(chain, header, state); err != nil {
@@ -565,7 +575,7 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 	}
 
 	// execute block reward tx.
-	if len(txs) > 0 {
+	if len(*txs) > 0 {
 		if err := c.trySendBlockReward(chain, header, state); err != nil {
 			return err
 		}
@@ -586,6 +596,46 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 		extraSuffix := len(header.Extra) - extraSeal
 		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
 			return errInvalidExtraValidators
+		}
+	}
+
+	//handle system governance Proposal
+	if chain.Config().IsSysGov(header.Number) {
+		// initialize system governance contract at the first SysGovBlock
+		if chain.Config().SysGovBlock.Cmp(header.Number) == 0 {
+			err := c.initSysGovContract(chain, header, state)
+			if err != nil {
+				return err
+			}
+		}
+
+		proposalCount, err := c.getPassedProposalCount(chain, header, state)
+		if err != nil {
+			return err
+		}
+		if proposalCount != uint32(len(systemTxs)) {
+			return errInvalidSysGovCount
+		}
+		for i := uint32(0); i < proposalCount; i++ {
+			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+			if err != nil {
+				return err
+			}
+			// execute the system governance Proposal
+			snapshot := state.Snapshot()
+			tx := systemTxs[int(i)]
+			receipt, err := c.replayProposal(chain, header, state, prop, len(*txs), tx)
+			if err != nil {
+				return err
+			}
+			*txs = append(*txs, tx)
+			*receipts = append(*receipts, receipt)
+			// set
+			err = c.finishProposalById(chain, header, state, prop.ID)
+			if err != nil {
+				state.RevertToSnapshot(snapshot)
+				return err
+			}
 		}
 	}
 
@@ -624,6 +674,42 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	if header.Number.Uint64()%c.config.Epoch == 0 {
 		if _, err := c.doSomethingAtEpoch(chain, header, state); err != nil {
 			panic(err)
+		}
+	}
+
+	//handle system governance Proposal
+	if chain.Config().IsSysGov(header.Number) {
+		// initialize system governance contract at the first SysGovBlock
+		if chain.Config().SysGovBlock.Cmp(header.Number) == 0 {
+			err := c.initSysGovContract(chain, header, state)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		proposalCount, err := c.getPassedProposalCount(chain, header, state)
+		if err != nil {
+			return nil, err
+		}
+		for i := uint32(0); i < proposalCount; i++ {
+			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+			if err != nil {
+				return nil, err
+			}
+			// execute the system governance Proposal
+			snapshot := state.Snapshot()
+			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(txs))
+			if err != nil {
+				return nil, err
+			}
+			txs = append(txs, tx)
+			receipts = append(receipts, receipt)
+			// set
+			err = c.finishProposalById(chain, header, state, prop.ID)
+			if err != nil {
+				state.RevertToSnapshot(snapshot)
+				return nil, err
+			}
 		}
 	}
 
@@ -851,12 +937,13 @@ func (c *Congress) decreaseMissedBlocksCounter(chain consensus.ChainHeaderReader
 
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
-func (c *Congress) Authorize(validator common.Address, signFn ValidatorFn) {
+func (c *Congress) Authorize(validator common.Address, signFn ValidatorFn, signTxFn SignTxFn) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	c.validator = validator
 	c.signFn = signFn
+	c.signTxFn = signTxFn
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
@@ -1014,4 +1101,21 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	if err != nil {
 		panic("can't encode: " + err.Error())
 	}
+}
+
+// IsSysTransaction checks whether a specific transaction is a system transaction.
+func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header) (bool, error) {
+	if tx.To() == nil {
+		return false, nil
+	}
+
+	sender, err := types.Sender(c.signer, tx)
+	if err != nil {
+		return false, errors.New("UnAuthorized transaction")
+	}
+	to := tx.To()
+	if sender == header.Coinbase && *to == sysGovToAddr && tx.GasPrice().Sign() == 0 {
+		return true, nil
+	}
+	return false, nil
 }

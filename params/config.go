@@ -177,6 +177,8 @@ type ChainConfig struct {
 
 	CatalystBlock *big.Int `json:"catalystBlock,omitempty"` // Catalyst switch block (nil = no fork, 0 = already on catalyst)
 
+	SysGovBlock *big.Int `json:"sysGovBlock,omitempty"` // System governance switch block (nil = no fork, 0 = already activated)
+
 	// Various consensus engines
 	Ethash   *EthashConfig   `json:"ethash,omitempty"`
 	Clique   *CliqueConfig   `json:"clique,omitempty"`
@@ -310,6 +312,11 @@ func (c *ChainConfig) IsLondon(num *big.Int) bool {
 // IsCatalyst returns whether num is either equal to the Merge fork block or greater.
 func (c *ChainConfig) IsCatalyst(num *big.Int) bool {
 	return isForked(c.CatalystBlock, num)
+}
+
+// IsSysGov returns whether num represents a block number after the SysGov fork
+func (c *ChainConfig) IsSysGov(num *big.Int) bool {
+	return isForked(c.SysGovBlock, num)
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
