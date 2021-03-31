@@ -228,10 +228,10 @@ func (e *NoRewardEngine) accumulateRewards(config *params.ChainConfig, state *st
 	state.AddBalance(header.Coinbase, reward)
 }
 
-func (e *NoRewardEngine) Finalize(chain consensus.ChainHeaderReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header) error {
+func (e *NoRewardEngine) Finalize(chain consensus.ChainHeaderReader, header *types.Header, statedb *state.StateDB, txs *[]*types.Transaction,
+	uncles []*types.Header, receipts *[]*types.Receipt, systemTxs []*types.Transaction) error {
 	if e.rewardsOn {
-		e.inner.Finalize(chain, header, statedb, txs, uncles)
+		e.inner.Finalize(chain, header, statedb, txs, uncles, receipts, systemTxs)
 	} else {
 		e.accumulateRewards(chain.Config(), statedb, header, uncles)
 		header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))

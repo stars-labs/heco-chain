@@ -520,7 +520,7 @@ func (s *Ethereum) StartMining(threads int) error {
 				log.Error("Etherbase account unavailable locally", "err", err)
 				return fmt.Errorf("signer missing: %v", err)
 			}
-			congress.Authorize(eb, wallet.SignData)
+			congress.Authorize(eb, wallet.SignData, wallet.SignTx)
 		}
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.

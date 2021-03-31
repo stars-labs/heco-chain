@@ -87,20 +87,32 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil,
+		false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0),
+		big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0),
+		nil, nil, nil, nil, new(EthashConfig), nil, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil,
+		false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0),
+		big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0),
+		nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
 
 	// AllCongressProtocolChanges copies from AllCliqueProtocolChanges.
-	AllCongressProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, &CongressConfig{Period: 0, Epoch: 30000}}
+	AllCongressProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil,
+		false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0),
+		big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0),
+		nil, nil, nil, big.NewInt(0), nil, nil, &CongressConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil}
-	TestRules       = TestChainConfig.Rules(new(big.Int))
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false,
+		big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0),
+		big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0),
+		nil, nil, nil, nil, new(EthashConfig), nil, nil}
+	TestRules = TestChainConfig.Rules(new(big.Int))
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -173,6 +185,8 @@ type ChainConfig struct {
 
 	YoloV1Block *big.Int `json:"yoloV1Block,omitempty"` // YOLO v1: https://github.com/ethereum/EIPs/pull/2657 (Ephemeral testnet)
 	EWASMBlock  *big.Int `json:"ewasmBlock,omitempty"`  // EWASM switch block (nil = no fork, 0 = already activated)
+
+	SysGovBlock *big.Int `json:"sysGovBlock,omitempty"` // System governance switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash   *EthashConfig   `json:"ethash,omitempty"`
@@ -301,6 +315,11 @@ func (c *ChainConfig) IsYoloV1(num *big.Int) bool {
 // IsEWASM returns whether num represents a block number after the EWASM fork
 func (c *ChainConfig) IsEWASM(num *big.Int) bool {
 	return isForked(c.EWASMBlock, num)
+}
+
+// IsSysGov returns whether num represents a block number after the SysGov fork
+func (c *ChainConfig) IsSysGov(num *big.Int) bool {
+	return isForked(c.SysGovBlock, num)
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
