@@ -1,9 +1,6 @@
 package congress
 
 import (
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
@@ -33,20 +30,6 @@ func (cc *chainContext) Engine() consensus.Engine {
 // GetHeader returns the hash corresponding to their hash.
 func (cc *chainContext) GetHeader(hash common.Hash, number uint64) *types.Header {
 	return cc.chainReader.GetHeader(hash, number)
-}
-
-func getInteractiveABI() map[string]abi.ABI {
-	abiMap := make(map[string]abi.ABI, 0)
-	tmpABI, _ := abi.JSON(strings.NewReader(validatorsInteractiveABI))
-	abiMap[validatorsContractName] = tmpABI
-	tmpABI, _ = abi.JSON(strings.NewReader(punishInteractiveABI))
-	abiMap[punishContractName] = tmpABI
-	tmpABI, _ = abi.JSON(strings.NewReader(proposalInteractiveABI))
-	abiMap[proposalContractName] = tmpABI
-	tmpABI, _ = abi.JSON(strings.NewReader(sysGovInteractiveABI))
-	abiMap[sysGovContractName] = tmpABI
-
-	return abiMap
 }
 
 // executeMsg executes transaction sent to system contracts.
