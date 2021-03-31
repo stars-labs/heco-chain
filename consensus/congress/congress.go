@@ -593,8 +593,15 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 	}
 
 	// initialize system governance contract at the first SysGovBlock
-	systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
-	systemcontract.ApplySystemContractExecution(state, header, newChainContext(chain, c), chain.Config())
+	err := systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
+	if err != nil {
+		return err
+	}
+
+	err = systemcontract.ApplySystemContractExecution(state, header, newChainContext(chain, c), chain.Config())
+	if err != nil {
+		return err
+	}
 
 	//handle system governance Proposal
 	if chain.Config().IsSysGov(header.Number) {

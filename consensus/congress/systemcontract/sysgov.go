@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	admin = common.HexToAddress("0x000000000000000000000000000000000000f004")
+	admin        = common.HexToAddress("0x000000000000000000000000000000000000f004")
+	adminTestnet = common.HexToAddress("0x000000000000000000000000000000000000f004")
 )
 
 const (
@@ -41,10 +42,18 @@ func (s *hardForkSysGov) Update(config *params.ChainConfig, height *big.Int, sta
 	return
 }
 
+func (s *hardForkSysGov) getAdminByChainId(chainId *big.Int) common.Address {
+	if chainId.Cmp(big.NewInt(256)) == 0 {
+		return adminTestnet
+	}
+
+	return admin
+}
+
 func (s *hardForkSysGov) Execute(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error) {
 
 	method := "initialize"
-	data, err := GetInteractiveABI()[SysGovContractName].Pack(method, admin)
+	data, err := GetInteractiveABI()[SysGovContractName].Pack(method, s.getAdminByChainId(config.ChainID))
 	if err != nil {
 		log.Error("Can't pack data for initialize", "error", err)
 		return err
