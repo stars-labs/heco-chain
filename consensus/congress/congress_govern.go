@@ -8,19 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/congress/systemcontract"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"math"
 	"math/big"
-)
-
-var (
-	mainnetsysGovAdmin = common.HexToAddress("") // should be a multisign address
-	testnetsysGovAdmin = common.HexToAddress("") // should be a multisign address
-
-	testsysGovAdmin = common.HexToAddress("0x860bC87C0856b7EA7A9fAE699b4984aEff176845") // secretkey: 78e664ccfe34a872dc6f0962a37e3ac77f6980b1ba6ab2d485d2af175a533721
 )
 
 // Proposal is the system governance proposal info.
@@ -35,13 +29,13 @@ type Proposal struct {
 func (c *Congress) getPassedProposalCount(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) (uint32, error) {
 
 	method := "getPassedProposalCount"
-	data, err := c.abi[sysGovContractName].Pack(method)
+	data, err := c.abi[systemcontract.SysGovContractName].Pack(method)
 	if err != nil {
 		log.Error("Can't pack data for getPassedProposalCount", "error", err)
 		return 0, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &sysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
@@ -50,7 +44,7 @@ func (c *Congress) getPassedProposalCount(chain consensus.ChainHeaderReader, hea
 	}
 
 	// unpack data
-	ret, err := c.abi[sysGovContractName].Unpack(method, result)
+	ret, err := c.abi[systemcontract.SysGovContractName].Unpack(method, result)
 	if err != nil {
 		return 0, err
 	}
@@ -68,13 +62,13 @@ func (c *Congress) getPassedProposalCount(chain consensus.ChainHeaderReader, hea
 func (c *Congress) getPassedProposalByIndex(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, idx uint32) (*Proposal, error) {
 
 	method := "getPassedProposalByIndex"
-	data, err := c.abi[sysGovContractName].Pack(method, idx)
+	data, err := c.abi[systemcontract.SysGovContractName].Pack(method, idx)
 	if err != nil {
 		log.Error("Can't pack data for getPassedProposalByIndex", "error", err)
 		return nil, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &sysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
@@ -84,7 +78,7 @@ func (c *Congress) getPassedProposalByIndex(chain consensus.ChainHeaderReader, h
 
 	// unpack data
 	prop := &Proposal{}
-	err = c.abi[sysGovContractName].UnpackIntoInterface(prop, method, result)
+	err = c.abi[systemcontract.SysGovContractName].UnpackIntoInterface(prop, method, result)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +89,13 @@ func (c *Congress) getPassedProposalByIndex(chain consensus.ChainHeaderReader, h
 //finishProposalById
 func (c *Congress) finishProposalById(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, id *big.Int) error {
 	method := "finishProposalById"
-	data, err := c.abi[sysGovContractName].Pack(method, id)
+	data, err := c.abi[systemcontract.SysGovContractName].Pack(method, id)
 	if err != nil {
 		log.Error("Can't pack data for getPassedProposalByIndex", "error", err)
 		return err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &sysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	_, err = executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
@@ -173,36 +167,4 @@ func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header 
 	receipt.TransactionIndex = uint(state.TxIndex())
 
 	return receipt
-}
-
-func (c *Congress) initSysGovContract(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	state.SetCode(sysGovContractAddr, sysGovContractCode)
-	method := "initialize"
-	data, err := c.abi[sysGovContractName].Pack(method, c.sysGovAdmin())
-	if err != nil {
-		log.Error("Can't pack data for initialize", "error", err)
-		return err
-	}
-
-	msg := types.NewMessage(header.Coinbase, &sysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-	_, err = executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Congress) sysGovAdmin() common.Address {
-	if c.chainConfig.ChainID.IsInt64() {
-		chainid := c.chainConfig.ChainID.Int64()
-		if chainid == 128 {
-			return mainnetsysGovAdmin
-		}
-		if chainid == 256 {
-			return testnetsysGovAdmin
-		}
-	}
-	return testsysGovAdmin
 }

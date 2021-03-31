@@ -1,7 +1,13 @@
-package congress
+package systemcontract
 
-// validatorsInteractiveABI contains all methods to interactive with validator contracts.
-const validatorsInteractiveABI = `
+import (
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"strings"
+)
+
+// ValidatorsInteractiveABI contains all methods to interactive with validator contracts.
+const ValidatorsInteractiveABI = `
 [
 	{
 		"inputs": [
@@ -57,7 +63,7 @@ const validatorsInteractiveABI = `
 ]
 `
 
-const punishInteractiveABI = `
+const PunishInteractiveABI = `
 [
 	{
 		"inputs": [],
@@ -95,7 +101,7 @@ const punishInteractiveABI = `
 ]
 `
 
-const proposalInteractiveABI = `
+const ProposalInteractiveABI = `
 [
 	{
 		"inputs": [
@@ -113,7 +119,7 @@ const proposalInteractiveABI = `
 ]
 `
 
-const sysGovInteractiveABI = `
+const SysGovInteractiveABI = `
 [
     {
 		"inputs": [
@@ -194,3 +200,29 @@ const sysGovInteractiveABI = `
 		"type": "function"
 	}
 ]`
+
+var (
+	ValidatorsContractName = "validators"
+	PunishContractName     = "punish"
+	ProposalContractName   = "proposal"
+	SysGovContractName     = "governance"
+	ValidatorsContractAddr = common.HexToAddress("0x000000000000000000000000000000000000f000")
+	PunishContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f001")
+	ProposalAddr           = common.HexToAddress("0x000000000000000000000000000000000000f002")
+	SysGovContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f003")
+	SysGovToAddr           = common.HexToAddress("0x000000000000000000000000000000000000ffff")
+)
+
+func GetInteractiveABI() map[string]abi.ABI {
+	abiMap := make(map[string]abi.ABI, 0)
+	tmpABI, _ := abi.JSON(strings.NewReader(ValidatorsInteractiveABI))
+	abiMap[ValidatorsContractName] = tmpABI
+	tmpABI, _ = abi.JSON(strings.NewReader(PunishInteractiveABI))
+	abiMap[PunishContractName] = tmpABI
+	tmpABI, _ = abi.JSON(strings.NewReader(ProposalInteractiveABI))
+	abiMap[ProposalContractName] = tmpABI
+	tmpABI, _ = abi.JSON(strings.NewReader(SysGovInteractiveABI))
+	abiMap[SysGovContractName] = tmpABI
+
+	return abiMap
+}
