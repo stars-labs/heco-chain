@@ -23,7 +23,7 @@ func init() {
 	sysGov = &hardForkSysGov{}
 }
 
-func ApplySystemContractUpgrade(config *params.ChainConfig, height *big.Int, state *state.StateDB) (err error){
+func ApplySystemContractUpgrade(config *params.ChainConfig, height *big.Int, state *state.StateDB) (err error) {
 	if config == nil || height == nil || state == nil {
 		return
 	}
@@ -32,14 +32,16 @@ func ApplySystemContractUpgrade(config *params.ChainConfig, height *big.Int, sta
 		log.Info("system contract upgrade", "name", sysGov.GetName(), "height", height, "chainId", config.ChainID.String())
 
 		err = sysGov.Update(config, height, state)
-		log.Error("Upgrade system contract update error", "name", sysGov.GetName(), "err", err)
-		return
+		if err != nil {
+			log.Error("Upgrade system contract update error", "name", sysGov.GetName(), "err", err)
+			return
+		}
 	}
 
 	return
 }
 
-func ApplySystemContractExecution(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error){
+func ApplySystemContractExecution(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error) {
 	if config == nil || header == nil || state == nil {
 		return
 	}
@@ -48,8 +50,10 @@ func ApplySystemContractExecution(state *state.StateDB, header *types.Header, ch
 		log.Info("system contract upgrade execution", "name", sysGov.GetName(), "height", header.Number, "chainId", config.ChainID.String())
 
 		err = sysGov.Execute(state, header, chainContext, config)
-		log.Error("Upgrade system contract execute error", "name", sysGov.GetName(), "err", err)
-		return
+		if err != nil {
+			log.Error("Upgrade system contract execute error", "name", sysGov.GetName(), "err", err)
+			return
+		}
 	}
 
 	return
