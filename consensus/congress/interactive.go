@@ -40,9 +40,5 @@ func executeMsg(msg core.Message, state *state.StateDB, header *types.Header, ch
 
 	ret, _, err = vmenv.Call(vm.AccountRef(msg.From()), *msg.To(), msg.Data(), msg.Gas(), msg.Value())
 
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return ret, nil
+	return ret, err
 }
