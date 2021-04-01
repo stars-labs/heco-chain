@@ -166,5 +166,6 @@ func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header 
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(state.TxIndex())
 
+	log.Info("executeProposalMsg", "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String(), "err", err)
 	return receipt
 }
