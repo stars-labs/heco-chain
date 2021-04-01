@@ -165,9 +165,9 @@ const SysGovInteractiveABI = `
 				"type": "uint256"
 			},
 			{
-				"internalType": "bytes1[]",
+				"internalType": "bytes",
 				"name": "data",
-				"type": "bytes1[]"
+				"type": "bytes"
 			}
 		],
 		"stateMutability": "view",
