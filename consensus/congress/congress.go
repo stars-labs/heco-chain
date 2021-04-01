@@ -644,7 +644,7 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	// Initialize all system contracts at block 1.
 	if header.Number.Cmp(common.Big1) == 0 {
 		if err := c.initializeSystemContracts(chain, header, state); err != nil {
@@ -660,7 +660,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	}
 
 	// deposit block reward if any tx exists.
-	if len(txs) > 0 {
+	if len(*txs) > 0 {
 		if err := c.trySendBlockReward(chain, header, state); err != nil {
 			panic(err)
 		}
@@ -697,12 +697,12 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 			}
 			// execute the system governance Proposal
 			snapshot := state.Snapshot()
-			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(txs))
+			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(*txs))
 			if err != nil {
 				return nil, err
 			}
-			txs = append(txs, tx)
-			receipts = append(receipts, receipt)
+			*txs = append(*txs, tx)
+			*receipts = append(*receipts, receipt)
 			// set
 			err = c.finishProposalById(chain, header, state, prop.Id)
 			if err != nil {
@@ -717,7 +717,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie)), nil
+	return types.NewBlock(header, *txs, nil, *receipts, new(trie.Trie)), nil
 }
 
 func (c *Congress) trySendBlockReward(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
@@ -812,7 +812,9 @@ func (c *Congress) initializeSystemContracts(chain consensus.ChainHeaderReader, 
 			return c.abi[systemcontract.ValidatorsContractName].Pack(method, genesisValidators)
 		}},
 		{systemcontract.PunishContractAddr, func() ([]byte, error) { return c.abi[systemcontract.PunishContractName].Pack(method) }},
-		{systemcontract.ProposalAddr, func() ([]byte, error) { return c.abi[systemcontract.ProposalContractName].Pack(method, genesisValidators) }},
+		{systemcontract.ProposalAddr, func() ([]byte, error) {
+			return c.abi[systemcontract.ProposalContractName].Pack(method, genesisValidators)
+		}},
 	}
 
 	for _, contract := range contracts {
