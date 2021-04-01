@@ -19,7 +19,7 @@ import (
 
 // Proposal is the system governance proposal info.
 type Proposal struct {
-	ID    *big.Int
+	Id    *big.Int
 	From  common.Address
 	To    common.Address
 	Value *big.Int
@@ -138,7 +138,7 @@ func (c *Congress) replayProposal(chain consensus.ChainHeaderReader, header *typ
 		return nil, err
 	}
 	if !bytes.Equal(propRLP, tx.Data()) {
-		return nil, fmt.Errorf("data missmatch, proposalID: %s, rlp: %s, txHash:%s, txData:%s", prop.ID.String(), hexutil.Encode(propRLP), tx.Hash().String(), hexutil.Encode(tx.Data()))
+		return nil, fmt.Errorf("data missmatch, proposalID: %s, rlp: %s, txHash:%s, txData:%s", prop.Id.String(), hexutil.Encode(propRLP), tx.Hash().String(), hexutil.Encode(tx.Data()))
 	}
 	//make system governance transaction
 	nonce := state.GetNonce(sender)

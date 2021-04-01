@@ -627,7 +627,7 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 			*txs = append(*txs, tx)
 			*receipts = append(*receipts, receipt)
 			// set
-			err = c.finishProposalById(chain, header, state, prop.ID)
+			err = c.finishProposalById(chain, header, state, prop.Id)
 			if err != nil {
 				state.RevertToSnapshot(snapshot)
 				return err
@@ -674,8 +674,15 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	}
 
 	// initialize system governance contract at the first SysGovBlock
-	systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
-	systemcontract.ApplySystemContractExecution(state, header, newChainContext(chain, c), chain.Config())
+	err := systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
+	if err != nil {
+		return nil, err
+	}
+
+	err = systemcontract.ApplySystemContractExecution(state, header, newChainContext(chain, c), chain.Config())
+	if err != nil {
+		return nil, err
+	}
 
 	//handle system governance Proposal
 	if chain.Config().IsSysGov(header.Number) {
@@ -697,7 +704,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 			txs = append(txs, tx)
 			receipts = append(receipts, receipt)
 			// set
-			err = c.finishProposalById(chain, header, state, prop.ID)
+			err = c.finishProposalById(chain, header, state, prop.Id)
 			if err != nil {
 				state.RevertToSnapshot(snapshot)
 				return nil, err

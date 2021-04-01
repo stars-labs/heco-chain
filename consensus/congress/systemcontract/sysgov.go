@@ -1,7 +1,6 @@
 package systemcontract
 
 import (
-	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -30,10 +29,7 @@ func (s *hardForkSysGov) GetName() string {
 }
 
 func (s *hardForkSysGov) Update(config *params.ChainConfig, height *big.Int, state *state.StateDB) (err error) {
-	contractCode, err := hex.DecodeString(code)
-	if err != nil {
-		return
-	}
+	contractCode := common.FromHex(code)
 
 	//write code to sys contract
 	state.SetCode(SysGovContractAddr, contractCode)
