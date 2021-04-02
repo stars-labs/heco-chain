@@ -644,7 +644,12 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (b *types.Block, err error) {
+	defer func() {
+		if err != nil {
+			log.Warn("FinalizeAndAssemble failed", "err", err)
+		}
+	}()
 	// Initialize all system contracts at block 1.
 	if header.Number.Cmp(common.Big1) == 0 {
 		if err := c.initializeSystemContracts(chain, header, state); err != nil {
@@ -674,7 +679,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	}
 
 	// initialize system governance contract at the first SysGovBlock
-	err := systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
+	err = systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
 	if err != nil {
 		return nil, err
 	}
