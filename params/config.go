@@ -362,6 +362,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		{name: "istanbulBlock", block: c.IstanbulBlock},
 		{name: "muirGlacierBlock", block: c.MuirGlacierBlock, optional: true},
 		{name: "yoloV1Block", block: c.YoloV1Block},
+		{name: "sysGovBlock", block: c.SysGovBlock},
 	} {
 		if lastFork.name != "" {
 			// Next one must be higher number
@@ -430,6 +431,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	}
 	if isForkIncompatible(c.EWASMBlock, newcfg.EWASMBlock, head) {
 		return newCompatError("ewasm fork block", c.EWASMBlock, newcfg.EWASMBlock)
+	}
+	if isForkIncompatible(c.SysGovBlock, newcfg.SysGovBlock, head) {
+		return newCompatError("sysGov fork block", c.SysGovBlock, newcfg.SysGovBlock)
 	}
 	return nil
 }
