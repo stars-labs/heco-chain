@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	//TODO: set these to formal addresses
 	admin        = common.HexToAddress("0x000000000000000000000000000000000000f004")
 	adminTestnet = common.HexToAddress("0x000000000000000000000000000000000000f004")
 )
@@ -39,11 +40,11 @@ func (s *hardForkSysGov) Update(config *params.ChainConfig, height *big.Int, sta
 }
 
 func (s *hardForkSysGov) getAdminByChainId(chainId *big.Int) common.Address {
-	if chainId.Cmp(big.NewInt(256)) == 0 {
-		return adminTestnet
+	if chainId.Cmp(params.MainnetChainConfig.ChainID) == 0 {
+		return admin
 	}
 
-	return admin
+	return adminTestnet
 }
 
 func (s *hardForkSysGov) Execute(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error) {

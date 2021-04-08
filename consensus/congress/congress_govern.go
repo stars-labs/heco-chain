@@ -113,7 +113,7 @@ func (c *Congress) executeProposal(chain consensus.ChainHeaderReader, header *ty
 	}
 	//make system governance transaction
 	nonce := state.GetNonce(c.validator)
-	tx := types.NewTransaction(nonce, sysGovToAddr, prop.Value, header.GasLimit, new(big.Int), propRLP)
+	tx := types.NewTransaction(nonce, systemcontract.SysGovToAddr, prop.Value, header.GasLimit, new(big.Int), propRLP)
 	tx, err = c.signTxFn(accounts.Account{Address: c.validator}, tx, chain.Config().ChainID)
 	if err != nil {
 		return nil, nil, err
