@@ -69,11 +69,6 @@ var (
 	diffNoTurn = big.NewInt(1) // Block difficulty for out-of-turn signatures
 )
 
-// System contract address.
-var (
-	sysGovToAddr = common.HexToAddress("0x000000000000000000000000000000000000ffff")
-)
-
 // Various error messages to mark blocks invalid. These should be private to
 // prevent engine specific errors from being referenced in the remainder of the
 // codebase, inherently breaking if the engine is swapped out. Please put common
@@ -1120,7 +1115,7 @@ func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header)
 		return false, errors.New("UnAuthorized transaction")
 	}
 	to := tx.To()
-	if sender == header.Coinbase && *to == sysGovToAddr && tx.GasPrice().Sign() == 0 {
+	if sender == header.Coinbase && *to == systemcontract.SysGovToAddr && tx.GasPrice().Sign() == 0 {
 		return true, nil
 	}
 	return false, nil
