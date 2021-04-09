@@ -1118,5 +1118,9 @@ func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header)
 	if sender == header.Coinbase && *to == systemcontract.SysGovToAddr && tx.GasPrice().Sign() == 0 {
 		return true, nil
 	}
+	// Make sure the miner can NOT call the system contract through a normal transaction.
+	if sender == header.Coinbase && *to == systemcontract.SysGovContractAddr {
+		return true, nil
+	}
 	return false, nil
 }
