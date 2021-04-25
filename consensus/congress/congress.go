@@ -608,7 +608,9 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 			return errInvalidSysGovCount
 		}
 		for i := uint32(0); i < proposalCount; i++ {
-			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+			// Because we will finish a proposal immediately after it's execution,
+			// So we should always get the zero-index proposal for the next execution.
+			prop, err := c.getPassedProposalByIndex(chain, header, state, 0)
 			if err != nil {
 				return err
 			}
@@ -691,7 +693,9 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 			return nil, err
 		}
 		for i := uint32(0); i < proposalCount; i++ {
-			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+			// Because we will finish a proposal immediately after it's execution,
+			// So we should always get the zero-index proposal for the next execution.
+			prop, err := c.getPassedProposalByIndex(chain, header, state, 0)
 			if err != nil {
 				return nil, err
 			}

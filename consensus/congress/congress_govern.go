@@ -97,7 +97,8 @@ func (c *Congress) finishProposalById(chain consensus.ChainHeaderReader, header 
 
 	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
-	// use parent
+	// execute message without a transaction
+	state.Prepare(common.Hash{}, header.Hash(), 0)
 	_, err = executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	if err != nil {
 		return err
