@@ -19,11 +19,12 @@ import (
 
 // Proposal is the system governance proposal info.
 type Proposal struct {
-	Id    *big.Int
-	From  common.Address
-	To    common.Address
-	Value *big.Int
-	Data  []byte
+	Id     *big.Int
+	Action *big.Int
+	From   common.Address
+	To     common.Address
+	Value  *big.Int
+	Data   []byte
 }
 
 func (c *Congress) getPassedProposalCount(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) (uint32, error) {
@@ -151,6 +152,33 @@ func (c *Congress) replayProposal(chain consensus.ChainHeaderReader, header *typ
 }
 
 func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
+	var receipt *types.Receipt
+	action := prop.Action.Uint64()
+	switch action {
+	case 0:
+		// evm action.
+		receipt = c.executeEvmCallProposal(chain, header, state, prop, totalTxIndex, txHash, bHash)
+	case 1:
+		// delete code action
+		ok := state.Erase(prop.To)
+		receipt = types.NewReceipt([]byte{}, ok != true, header.GasUsed)
+		log.Info("executeProposalMsg", "action", "erase", "id", prop.Id.String(), "to", prop.To, "txHash", txHash.String(), "success", ok)
+		return receipt
+	default:
+		receipt = types.NewReceipt([]byte{}, true, header.GasUsed)
+		log.Warn("executeProposalMsg failed, unsupported action", "action", action, "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String())
+	}
+
+	receipt.TxHash = txHash
+	receipt.BlockHash = state.BlockHash()
+	receipt.BlockNumber = header.Number
+	receipt.TransactionIndex = uint(state.TxIndex())
+
+	return receipt
+}
+
+// the returned value should not nil.
+func (c *Congress) executeEvmCallProposal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
 	// actually run the governance message
 	msg := types.NewMessage(prop.From, &prop.To, 0, prop.Value, header.GasLimit, new(big.Int), prop.Data, false)
 	state.Prepare(txHash, bHash, totalTxIndex)
@@ -159,14 +187,11 @@ func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header 
 
 	// governance message will not actually consumes gas
 	receipt := types.NewReceipt([]byte{}, err != nil, header.GasUsed)
-	receipt.TxHash = txHash
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = state.GetLogs(txHash)
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = state.BlockHash()
-	receipt.BlockNumber = header.Number
-	receipt.TransactionIndex = uint(state.TxIndex())
 
-	log.Info("executeProposalMsg", "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String(), "err", err)
+	log.Info("executeProposalMsg", "action", "evmCall", "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String(), "err", err)
+
 	return receipt
 }

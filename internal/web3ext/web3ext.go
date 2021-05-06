@@ -589,6 +589,17 @@ web3._extend({
 			params: 3,
 			inputFormatter: [null, web3._extend.formatters.inputBlockNumberFormatter, null]
 		}),
+		new web3._extend.Method({
+			name: 'getSysTransactionsByBlockNumber',
+			call: 'eth_getSysTransactionsByBlockNumber',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter]
+		}),
+		new web3._extend.Method({
+			name: 'getSysTransactionsByBlockHash',
+			call: 'eth_getSysTransactionsByBlockHash',
+			params: 1
+		}),
 	],
 	properties: [
 		new web3._extend.Property({

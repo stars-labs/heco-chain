@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus"
 	"math/big"
 	"sort"
 	"strconv"
@@ -812,6 +813,45 @@ func (s *PublicBlockChainAPI) GetBlockByHash(ctx context.Context, hash common.Ha
 		return s.rpcMarshalBlock(ctx, block, true, fullTx)
 	}
 	return nil, err
+}
+
+func (s *PublicBlockChainAPI) GetSysTransactionsByBlockNumber(ctx context.Context, number rpc.BlockNumber) ([]*RPCTransaction, error) {
+	posa, isPoSA := s.b.Engine().(consensus.PoSA)
+	if !isPoSA {
+		return nil, errors.New("not a PoSA engine")
+	}
+
+	block, err := s.b.BlockByNumber(ctx, number)
+	if err != nil || block == nil {
+		return nil, err
+	}
+	return getSysTransactions(block, posa)
+}
+
+func (s *PublicBlockChainAPI) GetSysTransactionsByBlockHash(ctx context.Context, hash common.Hash) ([]*RPCTransaction, error) {
+	posa, isPoSA := s.b.Engine().(consensus.PoSA)
+	if !isPoSA {
+		return nil, errors.New("not a PoSA engine")
+	}
+	block, err := s.b.BlockByHash(ctx, hash)
+	if err != nil || block == nil {
+		return nil, err
+	}
+	return getSysTransactions(block, posa)
+}
+
+func getSysTransactions(block *types.Block, posa consensus.PoSA) ([]*RPCTransaction, error) {
+	header := block.Header()
+	bhash := block.Hash()
+	bnumber := block.NumberU64()
+	txs := block.Transactions()
+	transactions := make([]*RPCTransaction, 0)
+	for i, tx := range txs {
+		if yes, _ := posa.IsSysTransaction(tx, header); yes {
+			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i)))
+		}
+	}
+	return transactions, nil
 }
 
 // GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index. When fullTx is true
