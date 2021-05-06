@@ -439,6 +439,20 @@ func (s *StateDB) Suicide(addr common.Address) bool {
 	return true
 }
 
+// Erase sets the code/storage-root to empty for the given account.
+// This's a governance action.
+//
+// The account is still available, and with it's balance unchanged.
+func (s *StateDB) Erase(addr common.Address) bool {
+	stateObject := s.getStateObject(addr)
+	if stateObject == nil {
+		return false
+	}
+	stateObject.erase()
+
+	return true
+}
+
 //
 // Setting, updating & deleting state object methods.
 //

@@ -516,3 +516,27 @@ func (s *stateObject) Nonce() uint64 {
 func (s *stateObject) Value() *big.Int {
 	panic("Value on stateObject should never be called")
 }
+
+func (s *stateObject) erase() {
+	prevcode := s.Code(s.db.db)
+	s.db.journal.append(eraseChange{
+		account:  &s.address,
+		prevhash: s.CodeHash(),
+		prevcode: prevcode,
+		prevroot: s.data.Root,
+	})
+
+	s.code = []byte{}
+	s.data.CodeHash = emptyCodeHash
+	s.data.Root = emptyRoot
+	s.trie = nil
+	s.dirtyCode = true
+}
+
+func (s *stateObject) revertErase(codeHash common.Hash, code []byte, root common.Hash) {
+	s.code = code
+	s.data.CodeHash = codeHash[:]
+	s.data.Root = root
+	s.getTrie(s.db.db)
+	s.dirtyCode = true
+}

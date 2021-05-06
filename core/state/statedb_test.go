@@ -727,3 +727,59 @@ func TestMissingTrieNodes(t *testing.T) {
 		t.Fatalf("expected error, got root :%x", root)
 	}
 }
+
+func TestErase(t *testing.T) {
+	// Create an initial state with a single contract
+	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+
+	addr := toAddr([]byte("so"))
+	state.SetBalance(addr, big.NewInt(1))
+	skey := common.HexToHash("aaa")
+	sval := common.HexToHash("bbb")
+
+	state.SetCode(addr, []byte("hello")) // Change an external metadata
+	state.SetState(addr, skey, sval)     // Change the storage trie
+
+	root, _ := state.Commit(false)
+	state.Reset(root)
+
+	// Simulate erase and then revert
+	id := state.Snapshot()
+	state.Erase(addr)
+	state.RevertToSnapshot(id)
+	root, _ = state.Commit(true)
+	state.Reset(root)
+
+	obj := state.getStateObject(addr)
+	if code := obj.Code(state.db); !bytes.Equal(code, []byte("hello")) {
+		t.Fatal("RevertToSnapshot failed after erase, code mismatch")
+	}
+	if val := obj.GetState(state.db, skey); val != sval {
+		t.Fatal("RevertToSnapshot failed after erase, storage mismatch")
+	}
+
+	state.Erase(addr)
+	// Commit the entire state and make sure we don't crash and have the correct state
+	root, _ = state.Commit(true)
+	state.Reset(root)
+
+	obj = state.getStateObject(addr)
+	if obj == nil {
+		t.Fatal("erase should not delete the account")
+	}
+	if code := obj.Code(state.db); len(code) > 0 {
+		t.Fatal("erase failed to clear the code")
+	}
+	if val := obj.GetState(state.db, skey); (val != common.Hash{}) {
+		t.Fatal("erase not clear the storage")
+	}
+	if obj.data.Root != emptyRoot {
+		t.Fatal("erase not clear the storage")
+	}
+	if !bytes.Equal(obj.CodeHash(), emptyCodeHash) {
+		t.Fatal("erase failed to clear the code hash")
+	}
+	if obj.Balance().Uint64() != uint64(1) {
+		t.Fatal("erase should not change balance")
+	}
+}

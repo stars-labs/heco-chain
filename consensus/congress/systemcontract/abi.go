@@ -150,6 +150,11 @@ const SysGovInteractiveABI = `
 				"type": "uint256"
 			},
 			{
+        		"internalType": "uint256",
+        		"name": "action",
+        		"type": "uint256"
+        	},
+			{
 				"internalType": "address",
 				"name": "from",
 				"type": "address"
