@@ -64,6 +64,7 @@ type Backend interface {
 	GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error)
 	GetTd(ctx context.Context, hash common.Hash) *big.Int
 	GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error)
+	GetEVMWithCfg(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, cfg vm.Config) (*vm.EVM, func() error, error)
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
 	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription
@@ -132,6 +133,12 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
+		},
+		{
+			Namespace: "trace",
+			Version:   "1.0",
+			Service:   NewPublicTxTraceAPI(apiBackend),
+			Public:    true,
 		},
 	}
 }

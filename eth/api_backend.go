@@ -23,6 +23,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
@@ -192,10 +193,16 @@ func (b *EthAPIBackend) GetTd(ctx context.Context, hash common.Hash) *big.Int {
 }
 
 func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+	return b.GetEVMWithCfg(ctx, msg, state, header, vm.Config{})
+}
+
+func (b *EthAPIBackend) GetEVMWithCfg(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, cfg vm.Config) (*vm.EVM, func() error, error) {
+	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
-	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)
-	return vm.NewEVM(context, state, b.eth.blockchain.Config(), *b.eth.blockchain.GetVMConfig()), vmError, nil
+	ktx := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)
+	config := b.ChainConfig()
+	return vm.NewEVM(ktx, state, config, cfg), vmError, nil
 }
 
 func (b *EthAPIBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
