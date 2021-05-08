@@ -27,7 +27,6 @@ import (
 	mapset "github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -944,8 +943,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	}
 	// Create the current work task and check any fork transitions needed
 	env := w.current
-	if w.chainConfig.DAOForkSupport && w.chainConfig.DAOForkBlock != nil && w.chainConfig.DAOForkBlock.Cmp(header.Number) == 0 {
-		misc.ApplyDAOHardFork(env.state)
+	posa, isPoSA := w.engine.(consensus.PoSA)
+	if isPoSA {
+		if err := posa.PreHandle(w.chain, header, env.state); err != nil {
+			log.Error("Failed to apply system contract upgrade", "err", err)
+			return
+		}
 	}
 	// Accumulate the uncles for the current block
 	uncles := make([]*types.Header, 0, 2)

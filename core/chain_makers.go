@@ -200,7 +200,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	chainreader := &fakeChainReader{config: config}
+	chainreader := &fakeChainReader{config: config, engine: engine}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
@@ -216,6 +216,12 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(b.header.Number) == 0 {
 			misc.ApplyDAOHardFork(statedb)
+		}
+		posa, isPoSA := engine.(consensus.PoSA)
+		if isPoSA {
+			if err := posa.PreHandle(chainreader, b.header, statedb); err != nil {
+				return nil, nil
+			}
 		}
 
 		// Execute any user modifications to the block
@@ -303,11 +309,16 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 
 type fakeChainReader struct {
 	config *params.ChainConfig
+	engine consensus.Engine
 }
 
 // Config returns the chain configuration.
 func (cr *fakeChainReader) Config() *params.ChainConfig {
 	return cr.config
+}
+
+func (cr *fakeChainReader) Engine() consensus.Engine {
+	return cr.engine
 }
 
 func (cr *fakeChainReader) CurrentHeader() *types.Header                            { return nil }

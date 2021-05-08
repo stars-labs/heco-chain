@@ -39,6 +39,8 @@ type (
 	// GetHashFunc returns the n'th block hash in the blockchain
 	// and is used by the BLOCKHASH EVM op code.
 	GetHashFunc func(uint64) common.Hash
+	// CanCreateFunc is the signature of a contract creation guard function
+	CanCreateFunc func(db StateDB, address common.Address, height *big.Int) bool
 )
 
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
@@ -67,6 +69,8 @@ type BlockContext struct {
 	Transfer TransferFunc
 	// GetHash returns the hash corresponding to n
 	GetHash GetHashFunc
+	// CanCreate returns whether a given address can create a new contract
+	CanCreate CanCreateFunc
 
 	// Block information
 	Coinbase    common.Address // Provides information for COINBASE
@@ -383,6 +387,13 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, common.Address{}, gas, ErrDepth
 	}
+	// check developer if needed
+	if evm.Context.CanCreate != nil {
+		if !evm.Context.CanCreate(evm.StateDB, caller.Address(), evm.Context.BlockNumber) {
+			return nil, common.Address{}, gas, ErrUnauthorizedDeveloper
+		}
+	}
+
 	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, common.Address{}, gas, ErrInsufficientBalance
 	}

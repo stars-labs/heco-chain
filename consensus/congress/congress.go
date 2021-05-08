@@ -19,8 +19,8 @@ package congress
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
-	"github.com/ethereum/go-ethereum/consensus/congress/systemcontract"
 	"io"
 	"math"
 	"math/big"
@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/congress/systemcontract"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -587,17 +588,6 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 		}
 	}
 
-	// initialize system governance contract at the first SysGovBlock
-	err := systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
-	if err != nil {
-		return err
-	}
-
-	err = systemcontract.ApplySystemContractExecution(state, header, newChainContext(chain, c), chain.Config())
-	if err != nil {
-		return err
-	}
-
 	//handle system governance Proposal
 	if chain.Config().IsSysGov(header.Number) {
 		proposalCount, err := c.getPassedProposalCount(chain, header, state)
@@ -673,17 +663,6 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 		if _, err := c.doSomethingAtEpoch(chain, header, state); err != nil {
 			panic(err)
 		}
-	}
-
-	// initialize system governance contract at the first SysGovBlock
-	err = systemcontract.ApplySystemContractUpgrade(chain.Config(), header.Number, state)
-	if err != nil {
-		return nil, err
-	}
-
-	err = systemcontract.ApplySystemContractExecution(state, header, newChainContext(chain, c), chain.Config())
-	if err != nil {
-		return nil, err
 	}
 
 	//handle system governance Proposal
@@ -1108,6 +1087,13 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	}
 }
 
+func (c *Congress) PreHandle(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
+	if c.chainConfig.SysGovBlock != nil && c.chainConfig.SysGovBlock.Cmp(header.Number) == 0 {
+		return systemcontract.ApplySystemContractUpgrade(state, header, newChainContext(chain, c), c.chainConfig)
+	}
+	return nil
+}
+
 // IsSysTransaction checks whether a specific transaction is a system transaction.
 func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header) (bool, error) {
 	if tx.To() == nil {
@@ -1127,4 +1113,24 @@ func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header)
 		return true, nil
 	}
 	return false, nil
+}
+
+// CanCreate determines where a given address can create a new contract.
+//
+// This will queries the system Developers contract, by DIRECTLY to get the target slot value of the contract,
+// it means that it's strongly relative to the layout of the Developers contract's state variables
+func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, height *big.Int) bool {
+	if c.chainConfig.IsSysGov(height) {
+		slot := calcSlotOfDevMappingKey(addr)
+		valueHash := state.GetState(systemcontract.DevelopersContractAddr, slot)
+		// none zero value means true
+		return valueHash.Big().Sign() > 0
+	}
+	return true
+}
+
+func calcSlotOfDevMappingKey(addr common.Address) common.Hash {
+	p := make([]byte, common.HashLength)
+	binary.BigEndian.PutUint16(p[common.HashLength-2:], uint16(systemcontract.DevMappingPosition))
+	return crypto.Keccak256Hash(addr.Hash().Bytes(), p)
 }

@@ -206,15 +206,55 @@ const SysGovInteractiveABI = `
 	}
 ]`
 
+const DevelopersInteractiveABI = `
+[
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_admin",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+	{
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "addr",
+          "type": "address"
+        }
+      ],
+      "name": "isDeveloper",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+]`
+
+const DevMappingPosition = 3
+
 var (
 	ValidatorsContractName = "validators"
 	PunishContractName     = "punish"
 	ProposalContractName   = "proposal"
 	SysGovContractName     = "governance"
+	DevelopersContractName = "developers"
 	ValidatorsContractAddr = common.HexToAddress("0x000000000000000000000000000000000000f000")
 	PunishContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f001")
 	ProposalAddr           = common.HexToAddress("0x000000000000000000000000000000000000f002")
 	SysGovContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f003")
+	DevelopersContractAddr = common.HexToAddress("0x000000000000000000000000000000000000F004")
 	// SysGovToAddr is the To address for the system governance transaction, NOT contract address
 	SysGovToAddr = common.HexToAddress("0x000000000000000000000000000000000000ffff")
 )
@@ -229,6 +269,8 @@ func GetInteractiveABI() map[string]abi.ABI {
 	abiMap[ProposalContractName] = tmpABI
 	tmpABI, _ = abi.JSON(strings.NewReader(SysGovInteractiveABI))
 	abiMap[SysGovContractName] = tmpABI
+	tmpABI, _ = abi.JSON(strings.NewReader(DevelopersInteractiveABI))
+	abiMap[DevelopersContractName] = tmpABI
 
 	return abiMap
 }

@@ -16,42 +16,33 @@ type IUpgradeAction interface {
 }
 
 var (
-	sysGov IUpgradeAction
+	sysContracts []IUpgradeAction
 )
 
 func init() {
-	sysGov = &hardForkSysGov{}
+	sysContracts = []IUpgradeAction{&hardForkSysGov{}, &hardForkDevelopers{}}
 }
 
-func ApplySystemContractUpgrade(config *params.ChainConfig, height *big.Int, state *state.StateDB) (err error) {
-	if config == nil || height == nil || state == nil {
-		return
-	}
-
-	if config.SysGovBlock.Cmp(height) == 0 {
-		log.Info("system contract upgrade", "name", sysGov.GetName(), "height", height, "chainId", config.ChainID.String())
-
-		err = sysGov.Update(config, height, state)
-		if err != nil {
-			log.Error("Upgrade system contract update error", "name", sysGov.GetName(), "err", err)
-			return
-		}
-	}
-
-	return
-}
-
-func ApplySystemContractExecution(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error) {
+func ApplySystemContractUpgrade(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error) {
 	if config == nil || header == nil || state == nil {
 		return
 	}
+	height := header.Number
 
-	if config.SysGovBlock.Cmp(header.Number) == 0 {
-		log.Info("system contract upgrade execution", "name", sysGov.GetName(), "height", header.Number, "chainId", config.ChainID.String())
+	for _, contract := range sysContracts {
+		log.Info("system contract upgrade", "name", contract.GetName(), "height", height, "chainId", config.ChainID.String())
 
-		err = sysGov.Execute(state, header, chainContext, config)
+		err = contract.Update(config, height, state)
 		if err != nil {
-			log.Error("Upgrade system contract execute error", "name", sysGov.GetName(), "err", err)
+			log.Error("Upgrade system contract update error", "name", contract.GetName(), "err", err)
+			return
+		}
+
+		log.Info("system contract upgrade execution", "name", contract.GetName(), "height", header.Number, "chainId", config.ChainID.String())
+
+		err = contract.Execute(state, header, chainContext, config)
+		if err != nil {
+			log.Error("Upgrade system contract execute error", "name", contract.GetName(), "err", err)
 			return
 		}
 	}
