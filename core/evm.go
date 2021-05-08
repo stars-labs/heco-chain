@@ -55,6 +55,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 		Difficulty:  new(big.Int).Set(header.Difficulty),
 		GasLimit:    header.GasLimit,
 		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+		CanCreate:   GetCanCreateFn(chain),
 	}
 }
 
@@ -102,4 +103,21 @@ func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.SubBalance(sender, amount)
 	db.AddBalance(recipient, amount)
+}
+
+func GetCanCreateFn(chain ChainContext) vm.CanCreateFunc {
+	if chain.Engine() == nil {
+		return func(db vm.StateDB, address common.Address, height *big.Int) bool {
+			return true
+		}
+	}
+	posa, isPoSA := chain.Engine().(consensus.PoSA)
+	if isPoSA {
+		return func(db vm.StateDB, address common.Address, height *big.Int) bool {
+			return posa.CanCreate(db, address, height)
+		}
+	}
+	return func(db vm.StateDB, address common.Address, height *big.Int) bool {
+		return true
+	}
 }
