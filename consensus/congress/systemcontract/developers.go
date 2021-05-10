@@ -32,8 +32,8 @@ func (s *hardForkDevelopers) GetName() string {
 func (s *hardForkDevelopers) Update(config *params.ChainConfig, height *big.Int, state *state.StateDB) (err error) {
 	contractCode := common.FromHex(devCode)
 
-	//write govCode to sys contract
-	state.SetCode(SysGovContractAddr, contractCode)
+	//write devCode to sys contract
+	state.SetCode(DevelopersContractAddr, contractCode)
 	log.Debug("Write code to system contract account", "addr", DevelopersContractAddr.String(), "code", devCode)
 
 	return
