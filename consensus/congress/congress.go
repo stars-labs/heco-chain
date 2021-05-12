@@ -1120,7 +1120,7 @@ func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header)
 // This will queries the system Developers contract, by DIRECTLY to get the target slot value of the contract,
 // it means that it's strongly relative to the layout of the Developers contract's state variables
 func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, height *big.Int) bool {
-	if c.chainConfig.IsSysGov(height) {
+	if c.chainConfig.IsSysGov(height) && c.config.EnableDevVerification {
 		slot := calcSlotOfDevMappingKey(addr)
 		valueHash := state.GetState(systemcontract.DevelopersContractAddr, slot)
 		// none zero value means true
