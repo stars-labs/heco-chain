@@ -54,10 +54,13 @@ var (
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    nil,
+		//SysGovBlock: big.NewInt(),	//TODO:
 
 		Congress: &CongressConfig{
 			Period: 3,
 			Epoch:  200,
+
+			EnableDevVerification: true,
 		},
 	}
 
@@ -76,6 +79,7 @@ var (
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    nil,
 		YoloV1Block:         big.NewInt(0),
+		//SysGovBlock: big.NewInt(),	//TODO:
 		Congress: &CongressConfig{
 			Period: 3,
 			Epoch:  200,
@@ -217,6 +221,8 @@ func (c *CliqueConfig) String() string {
 type CongressConfig struct {
 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+
+	EnableDevVerification bool `json:"enableDevVerification"` // Enable developer address verification
 }
 
 // String implements the stringer interface, returning the consensus engine details.
