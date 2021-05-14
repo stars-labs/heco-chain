@@ -1121,12 +1121,34 @@ func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header)
 // it means that it's strongly relative to the layout of the Developers contract's state variables
 func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, height *big.Int) bool {
 	if c.chainConfig.IsSysGov(height) && c.config.EnableDevVerification {
-		slot := calcSlotOfDevMappingKey(addr)
-		valueHash := state.GetState(systemcontract.DevelopersContractAddr, slot)
-		// none zero value means true
-		return valueHash.Big().Sign() > 0
+		if isDeveloperVerificationEnabled(state) {
+			slot := calcSlotOfDevMappingKey(addr)
+			valueHash := state.GetState(systemcontract.DevelopersContractAddr, slot)
+			// none zero value means true
+			return valueHash.Big().Sign() > 0
+		}
 	}
 	return true
+}
+
+// Since the state variables are as follow:
+//    bool public initialized;
+//    bool public enabled;
+//    address public admin;
+//    address public pendingAdmin;
+//    mapping(address => bool) private devs;
+//
+// according to [Layout of State Variables in Storage](https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html),
+// and after optimizer enabled, the `initialized`, `enabled` and `admin` will be packed, and stores at slot 0,
+// `pendingAdmin` stores at slot 1, and the position for `devs` is 2.
+func isDeveloperVerificationEnabled(state consensus.StateReader) bool {
+	compactValue := state.GetState(systemcontract.DevelopersContractAddr, common.Hash{})
+	log.Debug("isDeveloperVerificationEnabled", "raw", compactValue.String())
+	// Layout of slot 0:
+	// [0   -    9][10-29][  30   ][    31     ]
+	// [zero bytes][admin][enabled][initialized]
+	enabledByte := compactValue.Bytes()[common.HashLength-2]
+	return enabledByte == 0x01
 }
 
 func calcSlotOfDevMappingKey(addr common.Address) common.Hash {
