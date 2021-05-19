@@ -3,6 +3,8 @@ package systemcontract
 import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
+	"math/big"
 	"strings"
 )
 
@@ -59,7 +61,56 @@ const ValidatorsInteractiveABI = `
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
-	}
+	},
+	{
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "val",
+          "type": "address"
+        }
+      ],
+      "name": "getValidatorInfo",
+      "outputs": [
+        {
+          "internalType": "address payable",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "enum Validators.Status",
+          "name": "",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
 ]
 `
 
@@ -242,6 +293,99 @@ const DevelopersInteractiveABI = `
     }
 ]`
 
+const ValidatorsV1InteractiveABI = `[
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "activeValidators",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "distributeBlockReward",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getTopValidators",
+        "outputs": [
+            {
+                "internalType": "address[]",
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address[]",
+                "name": "_candidates",
+                "type": "address[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "_manager",
+                "type": "address[]"
+            },
+            {
+                "internalType": "address",
+                "name": "_admin",
+                "type": "address"
+            }
+        ],
+        "name": "initialize",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address[]",
+                "name": "newSet",
+                "type": "address[]"
+            },
+            {
+                "internalType": "uint256",
+                "name": "epoch",
+                "type": "uint256"
+            }
+        ],
+        "name": "updateActiveValidatorSet",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]`
+
+const PunishV1InteractiveABI = `[
+    {
+      "inputs": [],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+]`
+
 // DevMappingPosition is the position of the state variable `devs`.
 // Since the state variables are as follow:
 //    bool public initialized;
@@ -256,22 +400,28 @@ const DevelopersInteractiveABI = `
 const DevMappingPosition = 2
 
 var (
-	ValidatorsContractName = "validators"
-	PunishContractName     = "punish"
-	ProposalContractName   = "proposal"
-	SysGovContractName     = "governance"
-	DevelopersContractName = "developers"
-	ValidatorsContractAddr = common.HexToAddress("0x000000000000000000000000000000000000f000")
-	PunishContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f001")
-	ProposalAddr           = common.HexToAddress("0x000000000000000000000000000000000000f002")
-	SysGovContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000f003")
-	DevelopersContractAddr = common.HexToAddress("0x000000000000000000000000000000000000F004")
+	ValidatorsContractName   = "validators"
+	PunishContractName       = "punish"
+	ProposalContractName     = "proposal"
+	SysGovContractName       = "governance"
+	DevelopersContractName   = "developers"
+	ValidatorsV1ContractName = "validators_v1"
+	PunishV1ContractName     = "punish_v1"
+	ValidatorsContractAddr   = common.HexToAddress("0x000000000000000000000000000000000000f000")
+	PunishContractAddr       = common.HexToAddress("0x000000000000000000000000000000000000f001")
+	ProposalAddr             = common.HexToAddress("0x000000000000000000000000000000000000f002")
+	SysGovContractAddr       = common.HexToAddress("0x000000000000000000000000000000000000f003")
+	DevelopersContractAddr   = common.HexToAddress("0x000000000000000000000000000000000000F004")
+	ValidatorsV1ContractAddr = common.HexToAddress("0x000000000000000000000000000000000000F005")
+	PunishV1ContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000F006")
 	// SysGovToAddr is the To address for the system governance transaction, NOT contract address
 	SysGovToAddr = common.HexToAddress("0x000000000000000000000000000000000000ffff")
+
+	abiMap map[string]abi.ABI
 )
 
-func GetInteractiveABI() map[string]abi.ABI {
-	abiMap := make(map[string]abi.ABI, 0)
+func init() {
+	abiMap = make(map[string]abi.ABI, 0)
 	tmpABI, _ := abi.JSON(strings.NewReader(ValidatorsInteractiveABI))
 	abiMap[ValidatorsContractName] = tmpABI
 	tmpABI, _ = abi.JSON(strings.NewReader(PunishInteractiveABI))
@@ -283,5 +433,26 @@ func GetInteractiveABI() map[string]abi.ABI {
 	tmpABI, _ = abi.JSON(strings.NewReader(DevelopersInteractiveABI))
 	abiMap[DevelopersContractName] = tmpABI
 
+	tmpABI, _ = abi.JSON(strings.NewReader(ValidatorsV1InteractiveABI))
+	abiMap[ValidatorsV1ContractName] = tmpABI
+	tmpABI, _ = abi.JSON(strings.NewReader(PunishV1InteractiveABI))
+	abiMap[PunishV1ContractName] = tmpABI
+}
+
+func GetInteractiveABI() map[string]abi.ABI {
 	return abiMap
+}
+
+func GetValidatorAddr(blockNum *big.Int, config *params.ChainConfig) *common.Address {
+	if config.IsSysGov(blockNum) {
+		return &ValidatorsV1ContractAddr
+	}
+	return &ValidatorsContractAddr
+}
+
+func GetPunishAddr(blockNum *big.Int, config *params.ChainConfig) *common.Address {
+	if config.IsSysGov(blockNum) {
+		return &PunishV1ContractAddr
+	}
+	return &PunishContractAddr
 }
