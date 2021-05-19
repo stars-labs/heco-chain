@@ -20,7 +20,12 @@ var (
 )
 
 func init() {
-	sysContracts = []IUpgradeAction{&hardForkSysGov{}, &hardForkDevelopers{}}
+	sysContracts = []IUpgradeAction{
+		&hardForkSysGov{},
+		&hardForkDevelopers{},
+		&hardForkValidatorsV1{},
+		&hardForkPunishV1{},
+	}
 }
 
 func ApplySystemContractUpgrade(state *state.StateDB, header *types.Header, chainContext core.ChainContext, config *params.ChainConfig) (err error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/congress/systemcontract"
+	"github.com/ethereum/go-ethereum/consensus/congress/vmcaller"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -39,7 +40,7 @@ func (c *Congress) getPassedProposalCount(chain consensus.ChainHeaderReader, hea
 	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
-	result, err := executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	result, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	if err != nil {
 		return 0, err
 	}
@@ -72,7 +73,7 @@ func (c *Congress) getPassedProposalByIndex(chain consensus.ChainHeaderReader, h
 	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
-	result, err := executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	result, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (c *Congress) finishProposalById(chain consensus.ChainHeaderReader, header 
 
 	// execute message without a transaction
 	state.Prepare(common.Hash{}, header.Hash(), 0)
-	_, err = executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	_, err = vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	if err != nil {
 		return err
 	}
@@ -182,7 +183,7 @@ func (c *Congress) executeEvmCallProposal(chain consensus.ChainHeaderReader, hea
 	// actually run the governance message
 	msg := types.NewMessage(prop.From, &prop.To, 0, prop.Value, header.GasLimit, new(big.Int), prop.Data, false)
 	state.Prepare(txHash, bHash, totalTxIndex)
-	_, err := executeMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	_, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	state.Finalise(true)
 
 	// governance message will not actually consumes gas
