@@ -34,6 +34,7 @@ import (
 )
 
 var Memsize memsizeui.Handler
+var ID string
 
 var (
 	verbosityFlag = cli.IntFlag{
@@ -46,6 +47,12 @@ var (
 		Usage: "File path for log files",
 		Value: "",
 	}
+
+	metricLogFlag = cli.BoolFlag{
+		Name:  "metriclog",
+		Usage: "Write metric info to log files",
+	}
+
 	vmoduleFlag = cli.StringFlag{
 		Name:  "vmodule",
 		Usage: "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. eth/*=5,p2p=4)",
@@ -119,7 +126,7 @@ var (
 
 // Flags holds all command-line flags required for debugging.
 var Flags = []cli.Flag{
-	verbosityFlag, logPathFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
+	verbosityFlag, logPathFlag, metricLogFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
 	pprofFlag, pprofAddrFlag, pprofPortFlag, memprofilerateFlag,
 	blockprofilerateFlag, cpuprofileFlag, traceFlag,
 }
@@ -133,24 +140,53 @@ var (
 	glogger *log.GlogHandler
 )
 
-// Setup initializes profiling and logging based on the CLI flags.
-// It should be called as early as possible in the program.
-func Setup(ctx *cli.Context) error {
-	// logging
+const (
+	metricLogFile = "metric.log"
+	metricKey     = "metric"
+)
+
+func setupLogHandler(ctx *cli.Context) (handler log.Handler) {
 	usecolor := (isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())) && os.Getenv("TERM") != "dumb"
 
-	var handler log.Handler
-	if ctx.GlobalString(logPathFlag.Name) != "" {
-		rConfig := log.NewRotateConfig()
-		rConfig.LogDir = ctx.GlobalString(logPathFlag.Name)
-		handler = log.NewFileRotateHandler(rConfig, log.TerminalFormat(usecolor))
-	} else {
+	if ctx.GlobalString(logPathFlag.Name) == "" {
 		output := io.Writer(os.Stderr)
 		if usecolor {
 			output = colorable.NewColorableStderr()
 		}
 		handler = log.StreamHandler(output, log.TerminalFormat(usecolor))
+		return
 	}
+
+	rConfig := log.NewRotateConfig()
+	rConfig.LogDir = ctx.GlobalString(logPathFlag.Name)
+	handler1 := log.NewFileRotateHandler(rConfig, log.TerminalFormat(usecolor))
+	if !ctx.GlobalBool(metricLogFlag.Name) {
+		handler = handler1
+		return
+	}
+
+	mConfig := log.NewRotateConfig()
+	mConfig.LogDir = ctx.GlobalString(logPathFlag.Name)
+	mConfig.Filename = metricLogFile
+	handler2 := log.NewFileRotateHandler(mConfig, log.JSONFormat())
+
+	handler = log.FuncHandler(func(r *log.Record) error {
+		if r.Msg == metricKey {
+			r.Ctx = append(r.Ctx, "id", ID)
+			return handler2.Log(r)
+		} else {
+			return handler1.Log(r)
+		}
+	})
+
+	return
+}
+
+// Setup initializes profiling and logging based on the CLI flags.
+// It should be called as early as possible in the program.
+func Setup(ctx *cli.Context) error {
+	// logging
+	handler := setupLogHandler(ctx)
 	glogger = log.NewGlogHandler(handler)
 
 	log.PrintOrigins(ctx.GlobalBool(debugFlag.Name))

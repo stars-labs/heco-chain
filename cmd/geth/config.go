@@ -20,6 +20,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/internal/debug"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"os"
 	"reflect"
 	"unicode"
@@ -161,6 +163,7 @@ func checkWhisper(ctx *cli.Context) {
 // makeFullNode loads geth configuration and creates the Ethereum backend.
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
+	debug.ID = enode.PubkeyToIDV4(&cfg.Node.NodeKey().PublicKey).TerminalString()
 
 	backend := utils.RegisterEthService(stack, &cfg.Eth)
 
