@@ -257,39 +257,78 @@ const SysGovInteractiveABI = `
 	}
 ]`
 
-const DevelopersInteractiveABI = `
+const AddrListInteractiveABI = `
 [
     {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_admin",
-          "type": "address"
-        }
-      ],
-      "name": "initialize",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
+        "inputs": [],
+        "name": "devVerifyEnabled",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
     },
-	{
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "addr",
-          "type": "address"
-        }
-      ],
-      "name": "isDeveloper",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
+    {
+        "inputs": [],
+        "name": "getBlacksFrom",
+        "outputs": [
+            {
+                "internalType": "address[]",
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getBlacksTo",
+        "outputs": [
+            {
+                "internalType": "address[]",
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_admin",
+                "type": "address"
+            }
+        ],
+        "name": "initialize",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "addr",
+                "type": "address"
+            }
+        ],
+        "name": "isDeveloper",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
 ]`
 
@@ -404,14 +443,14 @@ var (
 	PunishContractName       = "punish"
 	ProposalContractName     = "proposal"
 	SysGovContractName       = "governance"
-	DevelopersContractName   = "developers"
+	AddressListContractName  = "address_list"
 	ValidatorsV1ContractName = "validators_v1"
 	PunishV1ContractName     = "punish_v1"
 	ValidatorsContractAddr   = common.HexToAddress("0x000000000000000000000000000000000000f000")
 	PunishContractAddr       = common.HexToAddress("0x000000000000000000000000000000000000f001")
 	ProposalAddr             = common.HexToAddress("0x000000000000000000000000000000000000f002")
-	SysGovContractAddr       = common.HexToAddress("0x000000000000000000000000000000000000f003")
-	DevelopersContractAddr   = common.HexToAddress("0x000000000000000000000000000000000000F004")
+	SysGovContractAddr       = common.HexToAddress("0x000000000000000000000000000000000000F003")
+	AddressListContractAddr  = common.HexToAddress("0x000000000000000000000000000000000000F004")
 	ValidatorsV1ContractAddr = common.HexToAddress("0x000000000000000000000000000000000000F005")
 	PunishV1ContractAddr     = common.HexToAddress("0x000000000000000000000000000000000000F006")
 	// SysGovToAddr is the To address for the system governance transaction, NOT contract address
@@ -430,8 +469,8 @@ func init() {
 	abiMap[ProposalContractName] = tmpABI
 	tmpABI, _ = abi.JSON(strings.NewReader(SysGovInteractiveABI))
 	abiMap[SysGovContractName] = tmpABI
-	tmpABI, _ = abi.JSON(strings.NewReader(DevelopersInteractiveABI))
-	abiMap[DevelopersContractName] = tmpABI
+	tmpABI, _ = abi.JSON(strings.NewReader(AddrListInteractiveABI))
+	abiMap[AddressListContractName] = tmpABI
 
 	tmpABI, _ = abi.JSON(strings.NewReader(ValidatorsV1InteractiveABI))
 	abiMap[ValidatorsV1ContractName] = tmpABI

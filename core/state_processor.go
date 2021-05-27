@@ -88,6 +88,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				systemTxs = append(systemTxs, tx)
 				continue
 			}
+			err = posa.ValidateTx(tx, header, statedb)
+			if err != nil {
+				return nil, nil, 0, err
+			}
 		}
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee)
 		if err != nil {

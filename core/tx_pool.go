@@ -140,6 +140,10 @@ type blockChain interface {
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
 
+type exTxValidator interface {
+	ValidateTx(tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
+}
+
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type TxPoolConfig struct {
 	Locals    []common.Address // Addresses that should be treated by default as local
@@ -254,6 +258,9 @@ type TxPool struct {
 
 	jamIndexer *txJamIndexer // tx jam indexer
 
+	txValidator    exTxValidator // A specific consensus can use this to do some extra validation to a transaction
+	nextFakeHeader *types.Header // A fake header of next block for extra transaction validation
+
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
 	reqResetCh      chan *txpoolResetRequest
@@ -323,6 +330,11 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	go pool.loop()
 
 	return pool
+}
+
+// InitExTxValidator sets the extra validator
+func (pool *TxPool) InitExTxValidator(v exTxValidator) {
+	pool.txValidator = v
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -641,6 +653,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	if tx.Gas() < intrGas {
 		return ErrIntrinsicGas
+	}
+
+	// do some extra validation if needed
+	if pool.txValidator != nil {
+		return pool.txValidator.ValidateTx(tx, pool.nextFakeHeader, pool.currentState)
 	}
 	return nil
 }
@@ -1288,6 +1305,17 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.istanbul = pool.chainconfig.IsIstanbul(next)
 	pool.eip2718 = pool.chainconfig.IsBerlin(next)
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
+
+	// Update fake next header if necessary
+	if pool.txValidator != nil {
+		pool.nextFakeHeader = &types.Header{
+			ParentHash: newHead.Hash(),
+			Difficulty: new(big.Int).Set(newHead.Difficulty),
+			Number:     next,
+			GasLimit:   newHead.GasLimit,
+			Time:       newHead.Time + 1,
+		}
+	}
 }
 
 // promoteExecutables moves transactions that have become processable from the

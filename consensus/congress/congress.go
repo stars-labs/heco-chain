@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/ethereum/go-ethereum/consensus/congress/vmcaller"
+	"github.com/ethereum/go-ethereum/metrics"
 	"io"
 	"math"
 	"math/big"
@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/congress/systemcontract"
+	"github.com/ethereum/go-ethereum/consensus/congress/vmcaller"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -56,6 +57,16 @@ const (
 
 	wiggleTime    = 500 * time.Millisecond // Random delay (per validator) to allow concurrent validators
 	maxValidators = 21                     // Max validators allowed to seal.
+
+	inmemoryBlacklist = 8 // Number of recent blacklist snapshots to keep in memory
+)
+
+type blacklistDirection uint
+
+const (
+	DirectionFrom blacklistDirection = iota
+	DirectionTo
+	DirectionBoth
 )
 
 // Congress proof-of-stake-authority protocol constants.
@@ -144,6 +155,10 @@ var (
 	errInvalidSysGovCount = errors.New("invalid system governance tx count")
 )
 
+var (
+	getblacklistTimer = metrics.NewRegisteredTimer("congress/blacklist/get", nil)
+)
+
 // StateFn gets state by the state root hash.
 type StateFn func(hash common.Hash) (*state.StateDB, error)
 
@@ -186,6 +201,9 @@ type Congress struct {
 	recents    *lru.ARCCache // Snapshots for recent block to speed up reorgs
 	signatures *lru.ARCCache // Signatures of recent blocks to speed up mining
 
+	blacklists *lru.ARCCache // Blacklist snapshots for recent blocks to speed up transactions validation
+	blLock     sync.Mutex    // Make sure only get blacklist once for each block
+
 	proposals map[common.Address]bool // Current list of proposals we are pushing
 
 	signer types.Signer // the signer instance to recover tx sender
@@ -214,6 +232,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database) *Congress {
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	signatures, _ := lru.NewARC(inmemorySignatures)
+	blacklists, _ := lru.NewARC(inmemoryBlacklist)
 
 	abi := systemcontract.GetInteractiveABI()
 
@@ -223,6 +242,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database) *Congress {
 		db:          db,
 		recents:     recents,
 		signatures:  signatures,
+		blacklists:  blacklists,
 		proposals:   make(map[common.Address]bool),
 		abi:         abi,
 		signer:      types.NewEIP155Signer(chainConfig.ChainID),
@@ -1126,12 +1146,108 @@ func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, h
 	if c.chainConfig.IsSysGov(height) && c.config.EnableDevVerification {
 		if isDeveloperVerificationEnabled(state) {
 			slot := calcSlotOfDevMappingKey(addr)
-			valueHash := state.GetState(systemcontract.DevelopersContractAddr, slot)
+			valueHash := state.GetState(systemcontract.AddressListContractAddr, slot)
 			// none zero value means true
 			return valueHash.Big().Sign() > 0
 		}
 	}
 	return true
+}
+
+// ValidateTx do a consensus-related validation on the given transaction at the given header and state.
+// the parentState must be the state of the header's parent block.
+func (c *Congress) ValidateTx(tx *types.Transaction, header *types.Header, parentState *state.StateDB) error {
+	// Must use the parent state for current validation,
+	// so we must starting the validation after sysGovBlock
+	if c.chainConfig.SysGovBlock != nil && c.chainConfig.SysGovBlock.Cmp(header.Number) < 0 {
+		from, err := types.Sender(c.signer, tx)
+		if err != nil {
+			return err
+		}
+		m, err := c.getBlacklist(header, parentState)
+		if err != nil {
+			log.Error("can't get blacklist", "err", err)
+			return err
+		}
+		if d, exist := m[from]; exist && (d != DirectionTo) {
+			return errors.New("address denied")
+		}
+		if to := tx.To(); to != nil {
+			if d, exist := m[*to]; exist && (d != DirectionFrom) {
+				return errors.New("address denied")
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB) (map[common.Address]blacklistDirection, error) {
+	defer func(start time.Time) {
+		getblacklistTimer.UpdateSince(start)
+	}(time.Now())
+
+	if v, ok := c.blacklists.Get(header.ParentHash); ok {
+		return v.(map[common.Address]blacklistDirection), nil
+	}
+
+	c.blLock.Lock()
+	defer c.blLock.Unlock()
+	if v, ok := c.blacklists.Get(header.ParentHash); ok {
+		return v.(map[common.Address]blacklistDirection), nil
+	}
+
+	abi := c.abi[systemcontract.AddressListContractName]
+	get := func(method string) ([]common.Address, error) {
+		data, err := abi.Pack(method)
+		if err != nil {
+			log.Error("Can't pack data ", "method", method, "err", err)
+			return []common.Address{}, err
+		}
+
+		msg := types.NewMessage(header.Coinbase, &systemcontract.AddressListContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+
+		// Note: It's safe to use minimalChainContext for executing AddressListContract
+		result, err := vmcaller.ExecuteMsg(msg, parentState, header, newMinimalChainContext(c), c.chainConfig)
+		if err != nil {
+			return []common.Address{}, err
+		}
+
+		// unpack data
+		ret, err := abi.Unpack(method, result)
+		if err != nil {
+			return []common.Address{}, err
+		}
+		if len(ret) != 1 {
+			return []common.Address{}, errors.New("invalid params length")
+		}
+		blacks, ok := ret[0].([]common.Address)
+		if !ok {
+			return []common.Address{}, errors.New("invalid blacklist format")
+		}
+		return blacks, nil
+	}
+	froms, err := get("getBlacksFrom")
+	if err != nil {
+		return nil, err
+	}
+	tos, err := get("getBlacksTo")
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[common.Address]blacklistDirection)
+	for _, from := range froms {
+		m[from] = DirectionFrom
+	}
+	for _, to := range tos {
+		if _, exist := m[to]; exist {
+			m[to] = DirectionBoth
+		} else {
+			m[to] = DirectionTo
+		}
+	}
+	c.blacklists.Add(header.ParentHash, m)
+	return m, nil
 }
 
 // Since the state variables are as follow:
@@ -1145,7 +1261,7 @@ func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, h
 // and after optimizer enabled, the `initialized`, `enabled` and `admin` will be packed, and stores at slot 0,
 // `pendingAdmin` stores at slot 1, and the position for `devs` is 2.
 func isDeveloperVerificationEnabled(state consensus.StateReader) bool {
-	compactValue := state.GetState(systemcontract.DevelopersContractAddr, common.Hash{})
+	compactValue := state.GetState(systemcontract.AddressListContractAddr, common.Hash{})
 	log.Debug("isDeveloperVerificationEnabled", "raw", compactValue.String())
 	// Layout of slot 0:
 	// [0   -    9][10-29][  30   ][    31     ]

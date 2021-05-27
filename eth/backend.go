@@ -201,15 +201,18 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 	eth.bloomIndexer.Start(eth.blockchain)
 
-	// set state fn if consensus engine is congress.
-	if congressEngine, ok := eth.engine.(*congress.Congress); ok {
-		congressEngine.SetStateFn(eth.blockchain.StateAt)
-	}
-
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
+
+	// do some extra work if consensus engine is congress.
+	if congressEngine, ok := eth.engine.(*congress.Congress); ok {
+		// set state fn
+		congressEngine.SetStateFn(eth.blockchain.StateAt)
+		// set consensus-related transaction validator
+		eth.txPool.InitExTxValidator(congressEngine)
+	}
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit + cacheConfig.SnapshotLimit
