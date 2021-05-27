@@ -8,7 +8,7 @@ import (
 )
 
 func TestJsonUnmarshalABI(t *testing.T) {
-	for _, abiStr := range []string{ValidatorsInteractiveABI, PunishInteractiveABI, ProposalInteractiveABI, SysGovInteractiveABI, DevelopersInteractiveABI} {
+	for _, abiStr := range []string{ValidatorsInteractiveABI, PunishInteractiveABI, ProposalInteractiveABI, SysGovInteractiveABI, AddrListInteractiveABI} {
 		_, err := abi.JSON(strings.NewReader(ValidatorsInteractiveABI))
 		require.NoError(t, err, abiStr)
 	}

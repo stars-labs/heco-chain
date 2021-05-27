@@ -22,7 +22,7 @@ var (
 func init() {
 	sysContracts = []IUpgradeAction{
 		&hardForkSysGov{},
-		&hardForkDevelopers{},
+		&hardForkAddressList{},
 		&hardForkValidatorsV1{},
 		&hardForkPunishV1{},
 	}

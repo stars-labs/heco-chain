@@ -81,6 +81,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				systemTxs = append(systemTxs, tx)
 				continue
 			}
+			err = posa.ValidateTx(tx, header, statedb)
+			if err != nil {
+				return nil, nil, 0, err
+			}
 		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
