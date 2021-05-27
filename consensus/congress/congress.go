@@ -687,7 +687,12 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	}
 
 	//handle system governance Proposal
-	if chain.Config().IsSysGov(header.Number) {
+	//
+	// Note:
+	// Even if the miner is not `running`, it's still working,
+	// the 'miner.worker' will try to FinalizeAndAssemble a block,
+	// in this case, the signTxFn is not set. A `non-miner node` can't execute system governance proposal.
+	if c.signTxFn != nil && chain.Config().IsSysGov(header.Number) {
 		proposalCount, err := c.getPassedProposalCount(chain, header, state)
 		if err != nil {
 			return nil, err

@@ -110,6 +110,13 @@ func (c *Congress) finishProposalById(chain consensus.ChainHeaderReader, header 
 }
 
 func (c *Congress) executeProposal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int) (*types.Transaction, *types.Receipt, error) {
+	// Even if the miner is not `running`, it's still working,
+	// the 'miner.worker' will try to FinalizeAndAssemble a block,
+	// in this case, the signTxFn is not set. A `non-miner node` can't execute system governance proposal.
+	if c.signTxFn == nil {
+		return nil, nil, errors.New("signTxFn not set")
+	}
+
 	propRLP, err := rlp.EncodeToBytes(prop)
 	if err != nil {
 		return nil, nil, err
