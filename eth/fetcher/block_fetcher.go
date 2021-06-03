@@ -781,6 +781,7 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 // the phase states accordingly.
 func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	hash := block.Hash()
+	log.Info("metric", "method", "importBlocks", "peer", peer, "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(), "fullBlock", true)
 
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
