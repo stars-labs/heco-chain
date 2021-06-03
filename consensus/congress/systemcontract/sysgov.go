@@ -14,8 +14,8 @@ import (
 
 var (
 	//TODO: set these to formal addresses
-	govAdmin        = common.HexToAddress("0x000000000000000000000000000000000000FF00")
-	govAdminTestnet = common.HexToAddress("0x000000000000000000000000000000000000FF00")
+	govAdmin        = common.HexToAddress("0x8Cc5A1a0802DB41DB826C2FcB72423744338DcB0")
+	govAdminTestnet = common.HexToAddress("0x8Cc5A1a0802DB41DB826C2FcB72423744338DcB0")
 )
 
 const (
