@@ -1833,7 +1833,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 
 		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
 
-		log.Info("metric", "method", "executeBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(), "cost", time.Since(substart)-trieproc-triehash)
+		log.Info("metric", "method", "executeBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(),
+			"size", block.Size(), "txCount", len(block.Transactions()), "gasUsed", block.Header().GasUsed, "cost", time.Since(substart)-trieproc-triehash)
 
 		// Validate the state using the default validator
 		substart = time.Now()
@@ -1849,7 +1850,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
 
 		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
-		log.Info("metric", "method", "validateBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(), "cost", time.Since(substart)-(statedb.AccountHashes+statedb.StorageHashes-triehash))
+		log.Info("metric", "method", "validateBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(),
+			"cost", time.Since(substart)-(statedb.AccountHashes+statedb.StorageHashes-triehash))
 
 		// Write the block to the chain and get the status.
 		substart = time.Now()
@@ -1865,7 +1867,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
 
 		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
-		log.Info("metric", "method", "writeBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(), "cost", time.Since(substart)-statedb.AccountCommits-statedb.StorageCommits-statedb.SnapshotCommits)
+		log.Info("metric", "method", "writeBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(),
+			"cost", time.Since(substart)-statedb.AccountCommits-statedb.StorageCommits-statedb.SnapshotCommits)
 		blockInsertTimer.UpdateSince(start)
 
 		switch status {
