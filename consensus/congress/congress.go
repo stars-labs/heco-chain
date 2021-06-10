@@ -783,8 +783,6 @@ func (c *Congress) tryPunishValidator(chain consensus.ChainHeaderReader, header 
 }
 
 func (c *Congress) doSomethingAtEpoch(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) ([]common.Address, error) {
-	// TODO: 如果SysGovBlock正好是一个 Epoch block，则这里获取 epochblock - 1 上的 validators，是旧合约的；
-	// 将这个newSortedValidators 直接设置到 新合约，有没有什么问题？
 	newSortedValidators, err := c.getTopValidators(chain, header)
 	if err != nil {
 		return []common.Address{}, err
