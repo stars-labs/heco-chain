@@ -148,7 +148,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	if result.Failed() {
-		log.Info("apply transaction with evm error", "txHash", tx.Hash().String(), "vmErr", result.Err)
+		log.Debug("apply transaction with evm error", "txHash", tx.Hash().String(), "vmErr", result.Err)
 	}
 
 	return receipt, err
