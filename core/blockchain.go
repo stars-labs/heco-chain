@@ -1834,7 +1834,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
 
 		log.Info("metric", "method", "executeBlock", "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(),
-			"size", block.Size(), "txCount", len(block.Transactions()), "gasUsed", block.Header().GasUsed, "cost", time.Since(substart)-trieproc-triehash)
+			"trieHash", triehash, "trieProc", trieproc, "size", block.Size(), "txCount", len(block.Transactions()), "gasUsed", block.Header().GasUsed,
+			"cost", time.Since(substart)-trieproc-triehash)
 
 		// Validate the state using the default validator
 		substart = time.Now()
