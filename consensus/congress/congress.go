@@ -58,7 +58,7 @@ const (
 	wiggleTime    = 500 * time.Millisecond // Random delay (per validator) to allow concurrent validators
 	maxValidators = 21                     // Max validators allowed to seal.
 
-	inmemoryBlacklist = 8 // Number of recent blacklist snapshots to keep in memory
+	inmemoryBlacklist = 21 // Number of recent blacklist snapshots to keep in memory
 )
 
 type blacklistDirection uint
