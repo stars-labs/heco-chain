@@ -650,7 +650,7 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (b *types.Block, err error) {
+func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (b *types.Block, rs []*types.Receipt, err error) {
 	defer func() {
 		if err != nil {
 			log.Warn("FinalizeAndAssemble failed", "err", err)
@@ -671,7 +671,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	}
 
 	// deposit block reward if any tx exists.
-	if len(*txs) > 0 {
+	if len(txs) > 0 {
 		if err := c.trySendBlockReward(chain, header, state); err != nil {
 			panic(err)
 		}
@@ -693,26 +693,26 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	if c.signTxFn != nil && chain.Config().IsSysGov(header.Number) {
 		proposalCount, err := c.getPassedProposalCount(chain, header, state)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for i := uint32(0); i < proposalCount; i++ {
 			// Because we will finish a proposal immediately after it's execution,
 			// So we should always get the zero-index proposal for the next execution.
 			prop, err := c.getPassedProposalByIndex(chain, header, state, 0)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			// execute the system governance Proposal
-			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(*txs))
+			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(txs))
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			*txs = append(*txs, tx)
-			*receipts = append(*receipts, receipt)
+			txs = append(txs, tx)
+			receipts = append(receipts, receipt)
 			// set
 			err = c.finishProposalById(chain, header, state, prop.Id)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
@@ -722,7 +722,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, *txs, nil, *receipts, new(trie.Trie)), nil
+	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie)), receipts, nil
 }
 
 func (c *Congress) trySendBlockReward(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
