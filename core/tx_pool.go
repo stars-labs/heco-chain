@@ -334,6 +334,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 
 // InitExTxValidator sets the extra validator
 func (pool *TxPool) InitExTxValidator(v exTxValidator) {
+	pool.makeFakeHeader(pool.chain.CurrentBlock().Header())
 	pool.txValidator = v
 }
 
@@ -1294,6 +1295,11 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.currentState = statedb
 	pool.pendingNonces = newTxNoncer(statedb)
 	pool.currentMaxGas = newHead.GasLimit
+	// Update fake next header if necessary
+	next := new(big.Int).Add(newHead.Number, big.NewInt(1))
+	if pool.txValidator != nil {
+		pool.makeFakeHeader(newHead)
+	}
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1301,20 +1307,20 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.addTxsLocked(reinject, false)
 
 	// Update all fork indicator by next pending block number.
-	next := new(big.Int).Add(newHead.Number, big.NewInt(1))
 	pool.istanbul = pool.chainconfig.IsIstanbul(next)
 	pool.eip2718 = pool.chainconfig.IsBerlin(next)
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
 
-	// Update fake next header if necessary
-	if pool.txValidator != nil {
-		pool.nextFakeHeader = &types.Header{
-			ParentHash: newHead.Hash(),
-			Difficulty: new(big.Int).Set(newHead.Difficulty),
-			Number:     next,
-			GasLimit:   newHead.GasLimit,
-			Time:       newHead.Time + 1,
-		}
+}
+
+func (pool *TxPool) makeFakeHeader(currHead *types.Header) {
+	next := new(big.Int).Add(currHead.Number, big.NewInt(1))
+	pool.nextFakeHeader = &types.Header{
+		ParentHash: currHead.Hash(),
+		Difficulty: new(big.Int).Set(currHead.Difficulty),
+		Number:     next,
+		GasLimit:   currHead.GasLimit,
+		Time:       currHead.Time + 1,
 	}
 }
 
