@@ -171,7 +171,6 @@ func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header 
 		ok := state.Erase(prop.To)
 		receipt = types.NewReceipt([]byte{}, ok != true, header.GasUsed)
 		log.Info("executeProposalMsg", "action", "erase", "id", prop.Id.String(), "to", prop.To, "txHash", txHash.String(), "success", ok)
-		return receipt
 	default:
 		receipt = types.NewReceipt([]byte{}, true, header.GasUsed)
 		log.Warn("executeProposalMsg failed, unsupported action", "action", action, "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String())
