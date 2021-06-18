@@ -1036,9 +1036,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 // and commits new work if consensus engine is running.
 func (w *worker) commit(uncles []*types.Header, interval func(), update bool, start time.Time) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
-	receipts := copyReceipts(w.current.receipts)
+	cpyReceipts := copyReceipts(w.current.receipts)
+	// copy transactions to a new slice to avoid interaction between different tasks.
+	txs := make([]*types.Transaction, len(w.current.txs))
+	copy(txs, w.current.txs)
 	s := w.current.state.Copy()
-	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, &w.current.txs, uncles, &receipts)
+	block, receipts, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, txs, uncles, cpyReceipts)
 	if err != nil {
 		return err
 	}
@@ -1084,6 +1087,18 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 
 // totalFees computes total consumed miner fees in ETH. Block transactions and receipts have to have the same order.
 func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
+	if len(block.Transactions()) != len(receipts) {
+		// for debug
+		log.Error("transactions len != receipts len", "blockHash", block.Hash().String(), "number", block.Number())
+		for i, tx := range block.Transactions() {
+			js, _ := tx.MarshalJSON()
+			log.Error("tx", i, string(js))
+		}
+		for i, receipt := range receipts {
+			js, _ := receipt.MarshalJSON()
+			log.Error("receipt", i, string(js))
+		}
+	}
 	feesWei := new(big.Int)
 	for i, tx := range block.Transactions() {
 		minerFee, _ := tx.EffectiveGasTip(block.BaseFee())
