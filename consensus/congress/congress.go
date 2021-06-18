@@ -58,7 +58,7 @@ const (
 	wiggleTime    = 500 * time.Millisecond // Random delay (per validator) to allow concurrent validators
 	maxValidators = 21                     // Max validators allowed to seal.
 
-	inmemoryBlacklist = 8 // Number of recent blacklist snapshots to keep in memory
+	inmemoryBlacklist = 21 // Number of recent blacklist snapshots to keep in memory
 )
 
 type blacklistDirection uint
@@ -626,7 +626,6 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 				return err
 			}
 			// execute the system governance Proposal
-			snapshot := state.Snapshot()
 			tx := systemTxs[int(i)]
 			receipt, err := c.replayProposal(chain, header, state, prop, len(*txs), tx)
 			if err != nil {
@@ -637,7 +636,6 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 			// set
 			err = c.finishProposalById(chain, header, state, prop.Id)
 			if err != nil {
-				state.RevertToSnapshot(snapshot)
 				return err
 			}
 		}
@@ -705,7 +703,6 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 				return nil, err
 			}
 			// execute the system governance Proposal
-			snapshot := state.Snapshot()
 			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(*txs))
 			if err != nil {
 				return nil, err
@@ -715,7 +712,6 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 			// set
 			err = c.finishProposalById(chain, header, state, prop.Id)
 			if err != nil {
-				state.RevertToSnapshot(snapshot)
 				return nil, err
 			}
 		}
