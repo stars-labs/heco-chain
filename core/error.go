@@ -93,4 +93,6 @@ var (
 	ErrFeeCapTooLow = errors.New("max fee per gas less than block base fee")
 
 	ErrMetaTrans = errors.New("ErrMetaTrans")
+
+	ErrUnauthorizedDeveloper = errors.New("unauthorized developer")
 )
