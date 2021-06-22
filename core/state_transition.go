@@ -17,10 +17,9 @@
 package core
 
 import (
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"math"
@@ -45,18 +44,18 @@ The state transitioning model does all the necessary work to work out a valid ne
 6) Derive new state root
 */
 type StateTransition struct {
-	gp         *GasPool
-	msg        Message
-	gas        uint64
-	gasPrice   *big.Int
-	initialGas uint64
-	value      *big.Int
-	data       []byte
-	state      vm.StateDB
-	evm        *vm.EVM
+	gp          *GasPool
+	msg         Message
+	gas         uint64
+	gasPrice    *big.Int
+	initialGas  uint64
+	value       *big.Int
+	data        []byte
+	state       vm.StateDB
+	evm         *vm.EVM
 	isMeta      bool
 	feeAddress  common.Address
-	feePercent uint64 //meta transaction fee percent
+	feePercent  uint64 //meta transaction fee percent
 	realPayload []byte //the real transaction fee percent
 }
 
@@ -196,8 +195,8 @@ func (st *StateTransition) buyGas() error {
 func (st *StateTransition) buyGasMeta() error {
 
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(st.feePercent)), types.BIG10000) //value deduct from fee address
-	mgSelfVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(types.BIG10000.Uint64() - st.feePercent)), types.BIG10000) //value deduct from sender address
+	mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(st.feePercent)), types.BIG10000)                      //value deduct from fee address
+	mgSelfVal := new(big.Int).Div(new(big.Int).Mul(mgval, new(big.Int).SetUint64(types.BIG10000.Uint64()-st.feePercent)), types.BIG10000) //value deduct from sender address
 
 	if st.state.GetBalance(st.feeAddress).Cmp(mgFeeAddrVal) < 0 || st.state.GetBalance(st.msg.From()).Cmp(mgSelfVal) < 0 {
 		return ErrInsufficientFunds
@@ -306,6 +305,13 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
 		return nil, ErrInsufficientFundsForTransfer
 	}
+	// Check if can create
+	if contractCreation && st.evm.CanCreate != nil {
+		if !st.evm.CanCreate(st.evm.StateDB, msg.From(), st.evm.BlockNumber) {
+			return nil, ErrUnauthorizedDeveloper
+		}
+	}
+
 	var (
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
@@ -345,7 +351,7 @@ func (st *StateTransition) refundGas() {
 
 	if st.isMeta {
 		mgFeeAddrVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(st.feePercent)), types.BIG10000)
-		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(types.BIG10000.Uint64() - st.feePercent)), types.BIG10000)
+		mgSelfVal := new(big.Int).Div(new(big.Int).Mul(remaining, new(big.Int).SetUint64(types.BIG10000.Uint64()-st.feePercent)), types.BIG10000)
 		st.state.AddBalance(st.feeAddress, mgFeeAddrVal)
 		st.state.AddBalance(st.msg.From(), mgSelfVal)
 		st.data = st.realPayload

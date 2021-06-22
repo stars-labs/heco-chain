@@ -69,4 +69,6 @@ var (
 	ErrIntrinsicGas = errors.New("intrinsic gas too low")
 
 	ErrMetaTrans = errors.New("ErrMetaTrans")
+
+	ErrUnauthorizedDeveloper = errors.New("unauthorized developer")
 )
