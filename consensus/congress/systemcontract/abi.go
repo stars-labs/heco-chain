@@ -483,14 +483,14 @@ func GetInteractiveABI() map[string]abi.ABI {
 }
 
 func GetValidatorAddr(blockNum *big.Int, config *params.ChainConfig) *common.Address {
-	if config.IsSysGov(blockNum) {
+	if config.IsRedCoast(blockNum) {
 		return &ValidatorsV1ContractAddr
 	}
 	return &ValidatorsContractAddr
 }
 
 func GetPunishAddr(blockNum *big.Int, config *params.ChainConfig) *common.Address {
-	if config.IsSysGov(blockNum) {
+	if config.IsRedCoast(blockNum) {
 		return &PunishV1ContractAddr
 	}
 	return &PunishContractAddr
