@@ -54,7 +54,7 @@ var (
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    nil,
-		//SysGovBlock: big.NewInt(),	//TODO:
+		//RedCoastBlock: big.NewInt(),	//TODO:
 
 		Congress: &CongressConfig{
 			Period: 3,
@@ -79,7 +79,7 @@ var (
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    nil,
 		YoloV1Block:         big.NewInt(0),
-		//SysGovBlock: big.NewInt(),	//TODO:
+		//RedCoastBlock: big.NewInt(),	//TODO:
 		Congress: &CongressConfig{
 			Period: 3,
 			Epoch:  200,
@@ -190,7 +190,7 @@ type ChainConfig struct {
 	YoloV1Block *big.Int `json:"yoloV1Block,omitempty"` // YOLO v1: https://github.com/ethereum/EIPs/pull/2657 (Ephemeral testnet)
 	EWASMBlock  *big.Int `json:"ewasmBlock,omitempty"`  // EWASM switch block (nil = no fork, 0 = already activated)
 
-	SysGovBlock *big.Int `json:"sysGovBlock,omitempty"` // System governance switch block (nil = no fork, 0 = already activated)
+	RedCoastBlock *big.Int `json:"redCoastBlock,omitempty"` // RedCoast switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash   *EthashConfig   `json:"ethash,omitempty"`
@@ -243,7 +243,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, YOLO v1: %v, SysGovBlock: %v, Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, YOLO v1: %v, RedCoastBlock: %v, Engine: %v}",
 		c.ChainID,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -257,7 +257,7 @@ func (c *ChainConfig) String() string {
 		c.IstanbulBlock,
 		c.MuirGlacierBlock,
 		c.YoloV1Block,
-		c.SysGovBlock,
+		c.RedCoastBlock,
 		engine,
 	)
 }
@@ -324,9 +324,9 @@ func (c *ChainConfig) IsEWASM(num *big.Int) bool {
 	return isForked(c.EWASMBlock, num)
 }
 
-// IsSysGov returns whether num represents a block number after the SysGov fork
-func (c *ChainConfig) IsSysGov(num *big.Int) bool {
-	return isForked(c.SysGovBlock, num)
+// IsRedCoast returns whether num represents a block number after the RedCoast fork
+func (c *ChainConfig) IsRedCoast(num *big.Int) bool {
+	return isForked(c.RedCoastBlock, num)
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
@@ -368,7 +368,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		{name: "istanbulBlock", block: c.IstanbulBlock},
 		{name: "muirGlacierBlock", block: c.MuirGlacierBlock, optional: true},
 		{name: "yoloV1Block", block: c.YoloV1Block, optional: true},
-		{name: "sysGovBlock", block: c.SysGovBlock},
+		{name: "redCoastBlock", block: c.RedCoastBlock},
 	} {
 		if lastFork.name != "" {
 			// Next one must be higher number
@@ -438,8 +438,8 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.EWASMBlock, newcfg.EWASMBlock, head) {
 		return newCompatError("ewasm fork block", c.EWASMBlock, newcfg.EWASMBlock)
 	}
-	if isForkIncompatible(c.SysGovBlock, newcfg.SysGovBlock, head) {
-		return newCompatError("sysGov fork block", c.SysGovBlock, newcfg.SysGovBlock)
+	if isForkIncompatible(c.RedCoastBlock, newcfg.RedCoastBlock, head) {
+		return newCompatError("RedCoast fork block", c.RedCoastBlock, newcfg.RedCoastBlock)
 	}
 	return nil
 }
