@@ -620,7 +620,7 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 	}
 
 	//handle system governance Proposal
-	if chain.Config().IsSysGov(header.Number) {
+	if chain.Config().IsRedCoast(header.Number) {
 		proposalCount, err := c.getPassedProposalCount(chain, header, state)
 		if err != nil {
 			return err
@@ -700,7 +700,7 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 	// Even if the miner is not `running`, it's still working,
 	// the 'miner.worker' will try to FinalizeAndAssemble a block,
 	// in this case, the signTxFn is not set. A `non-miner node` can't execute system governance proposal.
-	if c.signTxFn != nil && chain.Config().IsSysGov(header.Number) {
+	if c.signTxFn != nil && chain.Config().IsRedCoast(header.Number) {
 		proposalCount, err := c.getPassedProposalCount(chain, header, state)
 		if err != nil {
 			return nil, nil, err
@@ -1120,7 +1120,7 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 }
 
 func (c *Congress) PreHandle(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	if c.chainConfig.SysGovBlock != nil && c.chainConfig.SysGovBlock.Cmp(header.Number) == 0 {
+	if c.chainConfig.RedCoastBlock != nil && c.chainConfig.RedCoastBlock.Cmp(header.Number) == 0 {
 		return systemcontract.ApplySystemContractUpgrade(state, header, newChainContext(chain, c), c.chainConfig)
 	}
 	return nil
@@ -1152,7 +1152,7 @@ func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header)
 // This will queries the system Developers contract, by DIRECTLY to get the target slot value of the contract,
 // it means that it's strongly relative to the layout of the Developers contract's state variables
 func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, height *big.Int) bool {
-	if c.chainConfig.IsSysGov(height) && c.config.EnableDevVerification {
+	if c.chainConfig.IsRedCoast(height) && c.config.EnableDevVerification {
 		if isDeveloperVerificationEnabled(state) {
 			slot := calcSlotOfDevMappingKey(addr)
 			valueHash := state.GetState(systemcontract.AddressListContractAddr, slot)
@@ -1167,8 +1167,8 @@ func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, h
 // the parentState must be the state of the header's parent block.
 func (c *Congress) ValidateTx(tx *types.Transaction, header *types.Header, parentState *state.StateDB) error {
 	// Must use the parent state for current validation,
-	// so we must starting the validation after sysGovBlock
-	if c.chainConfig.SysGovBlock != nil && c.chainConfig.SysGovBlock.Cmp(header.Number) < 0 {
+	// so we must starting the validation after redCoastBlock
+	if c.chainConfig.RedCoastBlock != nil && c.chainConfig.RedCoastBlock.Cmp(header.Number) < 0 {
 		from, err := types.Sender(c.signer, tx)
 		if err != nil {
 			return err
