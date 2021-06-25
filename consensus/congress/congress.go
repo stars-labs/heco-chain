@@ -584,6 +584,16 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 		}
 	}
 
+	// avoid nil pointer
+	if txs == nil {
+		s := make([]*types.Transaction, 0)
+		txs = &s
+	}
+	if receipts == nil {
+		rs := make([]*types.Receipt, 0)
+		receipts = &rs
+	}
+
 	// execute block reward tx.
 	if len(*txs) > 0 {
 		if err := c.trySendBlockReward(chain, header, state); err != nil {
