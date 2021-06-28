@@ -51,6 +51,8 @@ func ApplySystemContractUpgrade(state *state.StateDB, header *types.Header, chai
 			return
 		}
 	}
+	// Update the state with pending changes
+	state.Finalise(true)
 
 	return
 }
