@@ -628,10 +628,12 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 		if proposalCount != uint32(len(systemTxs)) {
 			return errInvalidSysGovCount
 		}
+		// Due to the logics of the finish operation of contract `governance`, when finishing a proposal which
+		// is not the last passed proposal, it will change the sequence. So in here we must first executes all
+		// passed proposals, and then finish then all.
+		pIds := make([]*big.Int, 0, proposalCount)
 		for i := uint32(0); i < proposalCount; i++ {
-			// Because we will finish a proposal immediately after it's execution,
-			// So we should always get the zero-index proposal for the next execution.
-			prop, err := c.getPassedProposalByIndex(chain, header, state, 0)
+			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
 			if err != nil {
 				return err
 			}
@@ -644,7 +646,11 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 			*txs = append(*txs, tx)
 			*receipts = append(*receipts, receipt)
 			// set
-			err = c.finishProposalById(chain, header, state, prop.Id)
+			pIds = append(pIds, prop.Id)
+		}
+		// Finish all proposal
+		for i := uint32(0); i < proposalCount; i++ {
+			err = c.finishProposalById(chain, header, state, pIds[i])
 			if err != nil {
 				return err
 			}
@@ -705,10 +711,13 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 		if err != nil {
 			return nil, nil, err
 		}
+
+		// Due to the logics of the finish operation of contract `governance`, when finishing a proposal which
+		// is not the last passed proposal, it will change the sequence. So in here we must first executes all
+		// passed proposals, and then finish then all.
+		pIds := make([]*big.Int, 0, proposalCount)
 		for i := uint32(0); i < proposalCount; i++ {
-			// Because we will finish a proposal immediately after it's execution,
-			// So we should always get the zero-index proposal for the next execution.
-			prop, err := c.getPassedProposalByIndex(chain, header, state, 0)
+			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -720,7 +729,11 @@ func (c *Congress) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 			txs = append(txs, tx)
 			receipts = append(receipts, receipt)
 			// set
-			err = c.finishProposalById(chain, header, state, prop.Id)
+			pIds = append(pIds, prop.Id)
+		}
+		// Finish all proposal
+		for i := uint32(0); i < proposalCount; i++ {
+			err = c.finishProposalById(chain, header, state, pIds[i])
 			if err != nil {
 				return nil, nil, err
 			}
