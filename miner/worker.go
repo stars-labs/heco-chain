@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1053,11 +1054,11 @@ func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
 		log.Error("transactions len != receipts len", "blockHash", block.Hash().String(), "number", block.Number())
 		for i, tx := range block.Transactions() {
 			js, _ := tx.MarshalJSON()
-			log.Error("tx", i, string(js))
+			log.Error("tx", strconv.Itoa(i), string(js))
 		}
 		for i, receipt := range receipts {
 			js, _ := receipt.MarshalJSON()
-			log.Error("receipt", i, string(js))
+			log.Error("receipt", strconv.Itoa(i), string(js))
 		}
 	}
 	feesWei := new(big.Int)
