@@ -586,12 +586,10 @@ func (c *Congress) Finalize(chain consensus.ChainHeaderReader, header *types.Hea
 
 	// avoid nil pointer
 	if txs == nil {
-		s := make([]*types.Transaction, 0)
-		txs = &s
+		txs = new([]*types.Transaction)
 	}
 	if receipts == nil {
-		rs := make([]*types.Receipt, 0)
-		receipts = &rs
+		receipts = new([]*types.Receipt)
 	}
 
 	// execute block reward tx.
