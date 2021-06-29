@@ -234,7 +234,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database) *Congress {
 	signatures, _ := lru.NewARC(inmemorySignatures)
 	blacklists, _ := lru.NewARC(inmemoryBlacklist)
 
-	abi := systemcontract.GetInteractiveABI()
+	congressABI := systemcontract.GetInteractiveABI()
 
 	return &Congress{
 		chainConfig: chainConfig,
@@ -244,7 +244,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database) *Congress {
 		signatures:  signatures,
 		blacklists:  blacklists,
 		proposals:   make(map[common.Address]bool),
-		abi:         abi,
+		abi:         congressABI,
 		signer:      types.NewEIP155Signer(chainConfig.ChainID),
 	}
 }
@@ -1218,9 +1218,9 @@ func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB
 		return v.(map[common.Address]blacklistDirection), nil
 	}
 
-	abi := c.abi[systemcontract.AddressListContractName]
+	congressABI := c.abi[systemcontract.AddressListContractName]
 	get := func(method string) ([]common.Address, error) {
-		data, err := abi.Pack(method)
+		data, err := congressABI.Pack(method)
 		if err != nil {
 			log.Error("Can't pack data ", "method", method, "err", err)
 			return []common.Address{}, err
@@ -1235,7 +1235,7 @@ func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB
 		}
 
 		// unpack data
-		ret, err := abi.Unpack(method, result)
+		ret, err := congressABI.Unpack(method, result)
 		if err != nil {
 			return []common.Address{}, err
 		}
