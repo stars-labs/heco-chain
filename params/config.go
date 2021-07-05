@@ -54,7 +54,7 @@ var (
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    nil,
-		RedCoastBlock:       big.NewInt(20000000),
+		RedCoastBlock:       big.NewInt(6618800),
 
 		Congress: &CongressConfig{
 			Period: 3,
