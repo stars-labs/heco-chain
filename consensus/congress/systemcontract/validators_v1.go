@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	validatorV1Admin        = common.HexToAddress("")
+	validatorV1Admin        = common.HexToAddress("0xD849fa4D5475276568eC21f6deBf1C8A889Aa81B")
 	validatorV1AdminTestnet = common.HexToAddress("0x0dA5ac74D30D5b3c5ca9167A8666Ca98Fd58d9fb")
 )
 
