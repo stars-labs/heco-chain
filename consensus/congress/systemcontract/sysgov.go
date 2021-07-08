@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	govAdmin        = common.HexToAddress("")
+	govAdmin        = common.HexToAddress("0x2F7ef2ab933E5057c3aFc6be6e4867f320E4E6a3")
 	govAdminTestnet = common.HexToAddress("0x0dA5ac74D30D5b3c5ca9167A8666Ca98Fd58d9fb")
 )
 
