@@ -529,7 +529,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			defer func(start time.Time) { s.SnapshotAccountReads += time.Since(start) }(time.Now())
 		}
 		var acc *snapshot.Account
-		if acc, err = s.snap.Account(crypto.HashData(s.hasher, addr.Bytes())); err == nil {
+		if acc, err = s.snap.Account(crypto.HashDataWithCache(s.hasher, addr.Bytes())); err == nil {
 			if acc == nil {
 				return nil
 			}
