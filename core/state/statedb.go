@@ -1147,3 +1147,108 @@ func (s *StateDB) AddressInAccessList(addr common.Address) bool {
 func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addressPresent bool, slotPresent bool) {
 	return s.accessList.Contains(addr, slot)
 }
+
+func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.Hash)) error {
+	if s.dbErr != nil {
+		return fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
+	}
+	// Finalize any pending changes and merge everything into the tries
+	root := s.IntermediateRoot(deleteEmptyObjects)
+
+	// If snapshotting is enabled, update the snapshot tree with this new version
+	if s.snap != nil {
+		var wg sync.WaitGroup
+		wg.Add(1)
+		defer wg.Wait()
+		go func() {
+			defer wg.Done()
+			var start time.Time
+			if metrics.EnabledExpensive {
+				start = time.Now()
+			}
+			// Only update if there's a state transition (skip empty Clique blocks)
+			if parent := s.snap.Root(); parent != root {
+				if err := s.snaps.Update(root, parent, s.snapDestructs, s.snapAccounts, s.snapStorage); err != nil {
+					log.Warn("Failed to update snapshot tree", "from", parent, "to", root, "err", err)
+				}
+				// Keep 128 diff layers in the memory, persistent layer is 129th.
+				// - head layer is paired with HEAD state
+				// - head-1 layer is paired with HEAD-1 state
+				// - head-127 layer(bottom-most diff layer) is paired with HEAD-127 state
+				if err := s.snaps.Cap(root, 128); err != nil {
+					log.Warn("Failed to cap snapshot tree", "root", root, "layers", 128, "err", err)
+				}
+			}
+			s.snap, s.snapDestructs, s.snapAccounts, s.snapStorage = nil, nil, nil, nil
+			if metrics.EnabledExpensive {
+				s.SnapshotCommits += time.Since(start)
+			}
+		}()
+	}
+
+	// Write any contract code associated with the state object
+	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
+	for addr := range s.stateObjectsDirty {
+		if obj := s.stateObjects[addr]; !obj.deleted {
+			// Write any contract code associated with the state object
+			if obj.code != nil && obj.dirtyCode {
+				rawdb.WriteCode(codeWriter, common.BytesToHash(obj.CodeHash()), obj.code)
+				obj.dirtyCode = false
+			}
+			// Write any storage changes in the state object to its storage trie
+		}
+	}
+	if codeWriter.ValueSize() > 0 {
+		if err := codeWriter.Write(); err != nil {
+			log.Crit("Failed to commit dirty codes", "error", err)
+		}
+	}
+
+	s.db.TrieDB().FlushHashCache()
+	go func(s *StateDB) {
+		defer s.db.TrieDB().FlushLatch.Done()
+		// Commit objects to the trie, measuring the elapsed time
+		for addr := range s.stateObjectsDirty {
+			if obj := s.stateObjects[addr]; !obj.deleted {
+
+				// Write any storage changes in the state object to its storage trie
+				if err := obj.CommitTrie(s.db); err != nil {
+					log.Crit("Aync commit storage trie error", "addr", addr, "err", err)
+					return
+				}
+			}
+		}
+		if len(s.stateObjectsDirty) > 0 {
+			s.stateObjectsDirty = make(map[common.Address]struct{})
+		}
+
+		// Write the account trie changes, measuing the amount of wasted time
+		var start time.Time
+		if metrics.EnabledExpensive {
+			start = time.Now()
+		}
+		// The onleaf func is called _serially_, so we can reuse the same account
+		// for unmarshalling every time.
+		var account Account
+		accountNum := 0
+		commitRoot, err := s.trie.Commit(func(_ [][]byte, _ []byte, leaf []byte, parent common.Hash) error {
+			accountNum++
+			if err := rlp.DecodeBytes(leaf, &account); err != nil {
+				return nil
+			}
+			if account.Root != emptyRoot {
+				s.db.TrieDB().Reference(account.Root, parent)
+			}
+			return nil
+		})
+		if metrics.EnabledExpensive {
+			s.AccountCommits += time.Since(start)
+		}
+		if err == nil {
+			afterCommit(commitRoot)
+		} else {
+			log.Crit("Aync commit account trie error", "err", err)
+		}
+	}(s)
+	return nil
+}

@@ -88,7 +88,45 @@ type Database struct {
 	childrenSize  common.StorageSize // Storage size of the external children tracking
 	preimagesSize common.StorageSize // Storage size of the preimages cache
 
-	lock sync.RWMutex
+	dirtyHashCache *HashCache // Cache hash and nodes while hashing the trie
+
+	// Cache derived from `dirtyHashCache` when begin async committing,
+	// used as database when processing block while its parent block's state is still commtting
+	flushedHashCache *HashCache
+
+	FlushLatch sync.WaitGroup
+	lock       sync.RWMutex
+}
+
+// Cache used to store <hash, trie> nodes while hashing the trie
+type HashCache struct {
+	inner map[common.Hash]node
+	lock  sync.RWMutex
+}
+
+// Put writes <key, value> to cache with lock protection
+func (c *HashCache) Put(key []byte, value node) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.inner[common.BytesToHash(key)] = value
+}
+
+// Put writes <key, value> to cache with lock protection
+func (c *HashCache) PutIfAbsent(key []byte, value node) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	hk := common.BytesToHash(key)
+	if _, ok := c.inner[hk]; !ok {
+		c.inner[hk] = value
+	}
+}
+
+// Get reads value of given key from cache with lock protection
+func (c *HashCache) Get(key common.Hash) (node, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	node, e := c.inner[key]
+	return node, e
 }
 
 // rawNode is a simple binary blob used to differentiate between collapsed trie
@@ -272,6 +310,41 @@ func expandNode(hash hashNode, n node) node {
 	}
 }
 
+// createNode creates new clean node using the old dirty one
+func createNode(old node) node {
+	switch n := old.(type) {
+	case *shortNode:
+		return &shortNode{
+			Key: n.Key,
+			Val: createNode(n.Val),
+			flags: nodeFlag{
+				hash: n.flags.hash,
+			},
+		}
+	case *fullNode:
+		node := &fullNode{
+			flags: nodeFlag{
+				hash: n.flags.hash,
+			},
+		}
+		for i := 0; i < len(node.Children); i++ {
+			if n.Children[i] != nil {
+				hash, _ := n.Children[i].cache()
+				if len(hash) == 32 {
+					node.Children[i] = hash
+				} else {
+					node.Children[i] = createNode(n.Children[i])
+				}
+			}
+		}
+		return node
+	case valueNode, hashNode:
+		return n
+	default:
+		panic(fmt.Sprintf("create invalid node type: %T", n))
+	}
+}
+
 // Config defines all necessary options for database.
 type Config struct {
 	Cache     int    // Memory allowance (MB) to use for caching trie nodes in memory
@@ -304,6 +377,7 @@ func NewDatabaseWithConfig(diskdb ethdb.KeyValueStore, config *Config) *Database
 		dirties: map[common.Hash]*cachedNode{{}: {
 			children: make(map[common.Hash]uint16),
 		}},
+		dirtyHashCache: &HashCache{inner: make(map[common.Hash]node)},
 	}
 	if config == nil || config.Preimages { // TODO(karalabe): Flip to default off in the future
 		db.preimages = make(map[common.Hash][]byte)
@@ -379,6 +453,11 @@ func (db *Database) node(hash common.Hash) node {
 		}
 	}
 	// Retrieve the node from the dirty cache if available
+	if flushed := db.GetFlushedHashCache(); flushed != nil {
+		if n, e := flushed.Get(hash); e {
+			return createNode(n)
+		}
+	}
 	db.lock.RLock()
 	dirty := db.dirties[hash]
 	db.lock.RUnlock()
@@ -419,6 +498,14 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 		}
 	}
 	// Retrieve the node from the dirty cache if available
+	if flushed := db.GetFlushedHashCache(); flushed != nil {
+		if n, e := flushed.Get(hash); e {
+			entry := &cachedNode{
+				node: simplifyNode(n),
+			}
+			return entry.rlp(), nil
+		}
+	}
 	db.lock.RLock()
 	dirty := db.dirties[hash]
 	db.lock.RUnlock()
@@ -886,4 +973,31 @@ func (db *Database) SaveCachePeriodically(dir string, interval time.Duration, st
 			return
 		}
 	}
+}
+
+// FlushHashCache waits for the last async state committing to finish, and move data
+// from dirtyHashCache to flushedHashCache, preparing for the next async state committing
+// note that async state committing must be revoked after calling this method, or it will
+// be blocked forever
+func (db *Database) FlushHashCache() {
+	db.FlushLatch.Wait()
+	db.FlushLatch.Add(1)
+	db.lock.Lock()
+	defer db.lock.Unlock()
+	db.flushedHashCache = db.dirtyHashCache
+	db.dirtyHashCache = &HashCache{inner: make(map[common.Hash]node)}
+}
+
+// GetFlushedHashCache returns flushedHashCache with lock protection
+func (db *Database) GetFlushedHashCache() *HashCache {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+	return db.flushedHashCache
+}
+
+// GetDirtyHashCache returns dirtyHashCache with lock protection
+func (db *Database) GetDirtyHashCache() *HashCache {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+	return db.dirtyHashCache
 }
