@@ -392,7 +392,7 @@ func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
 
 	var data = tx.Data()
 	if IsMetaTransaction(data) {
-		metaData, err := DecodeMetaData(data)
+		metaData, err := DecodeMetaData(data, big.NewInt(0))
 		if err == nil {
 			data = metaData.Payload
 		}

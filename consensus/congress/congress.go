@@ -767,7 +767,7 @@ func (c *Congress) trySendBlockReward(chain consensus.ChainHeaderReader, header 
 	}
 
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, fee, math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, fee, math.MaxUint64, new(big.Int), data, true)
 
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		return err
@@ -852,7 +852,7 @@ func (c *Congress) initializeSystemContracts(chain consensus.ChainHeaderReader, 
 		}
 
 		nonce := state.GetNonce(header.Coinbase)
-		msg := types.NewMessage(header.Coinbase, &contract.addr, nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+		msg := vmcaller.NewLegacyMessage(header.Coinbase, &contract.addr, nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 
 		if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 			return err
@@ -880,7 +880,7 @@ func (c *Congress) getTopValidators(chain consensus.ChainHeaderReader, header *t
 		return []common.Address{}, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetValidatorAddr(parent.Number, c.chainConfig), 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(parent.Number, c.chainConfig), 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := vmcaller.ExecuteMsg(msg, statedb, parent, newChainContext(chain, c), c.chainConfig)
@@ -915,7 +915,7 @@ func (c *Congress) updateValidators(vals []common.Address, chain consensus.Chain
 
 	// call contract
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		log.Error("Can't update validators to contract", "err", err)
 		return err
@@ -935,7 +935,7 @@ func (c *Congress) punishValidator(val common.Address, chain consensus.ChainHead
 
 	// call contract
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		log.Error("Can't punish validator", "err", err)
 		return err
@@ -955,7 +955,7 @@ func (c *Congress) decreaseMissedBlocksCounter(chain consensus.ChainHeaderReader
 
 	// call contract
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		log.Error("Can't decrease missed blocks counter for validator", "err", err)
 		return err
@@ -1226,7 +1226,7 @@ func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB
 			return []common.Address{}, err
 		}
 
-		msg := types.NewMessage(header.Coinbase, &systemcontract.AddressListContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+		msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.AddressListContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 		// Note: It's safe to use minimalChainContext for executing AddressListContract
 		result, err := vmcaller.ExecuteMsg(msg, parentState, header, newMinimalChainContext(c), c.chainConfig)

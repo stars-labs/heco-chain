@@ -288,39 +288,40 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 
 func checkPricePredictionConfig(cfg *gasprice.Config) *gasprice.Config {
 	if cfg == nil {
-		cfg1 := DefaultFullGPOConfig
+		cfg1 := ethconfig.FullNodeGPO
 		return &cfg1
 	}
+	defaultConf := ethconfig.FullNodeGPO
 	if cfg.PredictIntervalSecs == 0 {
-		cfg.PredictIntervalSecs = DefaultFullGPOConfig.PredictIntervalSecs
+		cfg.PredictIntervalSecs = defaultConf.PredictIntervalSecs
 	}
 	if cfg.MinTxCntPerBlock == 0 {
-		cfg.MinTxCntPerBlock = DefaultFullGPOConfig.MinTxCntPerBlock
+		cfg.MinTxCntPerBlock = defaultConf.MinTxCntPerBlock
 	}
 
 	if cfg.MinMedianIndex == 0 {
-		cfg.MinMedianIndex = DefaultFullGPOConfig.MinMedianIndex
+		cfg.MinMedianIndex = defaultConf.MinMedianIndex
 	}
 	if cfg.MinLowIndex == 0 {
-		cfg.MinLowIndex = DefaultFullGPOConfig.MinLowIndex
+		cfg.MinLowIndex = defaultConf.MinLowIndex
 	}
 	if cfg.FastPercentile == 0 {
-		cfg.FastPercentile = DefaultFullGPOConfig.FastPercentile
+		cfg.FastPercentile = defaultConf.FastPercentile
 	}
 	if cfg.MeidanPercentile == 0 {
-		cfg.MeidanPercentile = DefaultFullGPOConfig.MeidanPercentile
+		cfg.MeidanPercentile = defaultConf.MeidanPercentile
 	}
 	if cfg.FastFactor == 0 {
-		cfg.FastFactor = DefaultFullGPOConfig.FastFactor
+		cfg.FastFactor = defaultConf.FastFactor
 	}
 	if cfg.MedianFactor == 0 {
-		cfg.MedianFactor = DefaultFullGPOConfig.MedianFactor
+		cfg.MedianFactor = defaultConf.MedianFactor
 	}
 	if cfg.LowFactor == 0 {
-		cfg.LowFactor = DefaultFullGPOConfig.LowFactor
+		cfg.LowFactor = defaultConf.LowFactor
 	}
 	if cfg.MaxValidPendingSecs == 0 {
-		cfg.MaxValidPendingSecs = DefaultFullGPOConfig.MaxValidPendingSecs
+		cfg.MaxValidPendingSecs = defaultConf.MaxValidPendingSecs
 	}
 	return cfg
 }

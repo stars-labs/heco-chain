@@ -37,7 +37,7 @@ func (c *Congress) getPassedProposalCount(chain consensus.ChainHeaderReader, hea
 		return 0, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
@@ -70,7 +70,7 @@ func (c *Congress) getPassedProposalByIndex(chain consensus.ChainHeaderReader, h
 		return nil, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
@@ -97,10 +97,10 @@ func (c *Congress) finishProposalById(chain consensus.ChainHeaderReader, header 
 		return err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// execute message without a transaction
-	state.Prepare(common.Hash{}, header.Hash(), 0)
+	state.Prepare(common.Hash{}, 0)
 	_, err = vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	if err != nil {
 		return err
@@ -177,7 +177,7 @@ func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header 
 	}
 
 	receipt.TxHash = txHash
-	receipt.BlockHash = state.BlockHash()
+	receipt.BlockHash = bHash
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(state.TxIndex())
 
@@ -187,15 +187,15 @@ func (c *Congress) executeProposalMsg(chain consensus.ChainHeaderReader, header 
 // the returned value should not nil.
 func (c *Congress) executeEvmCallProposal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
 	// actually run the governance message
-	msg := types.NewMessage(prop.From, &prop.To, 0, prop.Value, header.GasLimit, new(big.Int), prop.Data, false)
-	state.Prepare(txHash, bHash, totalTxIndex)
+	msg := vmcaller.NewLegacyMessage(prop.From, &prop.To, 0, prop.Value, header.GasLimit, new(big.Int), prop.Data, false)
+	state.Prepare(txHash, totalTxIndex)
 	_, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
 	state.Finalise(true)
 
 	// governance message will not actually consumes gas
 	receipt := types.NewReceipt([]byte{}, err != nil, header.GasUsed)
 	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = state.GetLogs(txHash)
+	receipt.Logs = state.GetLogs(txHash, bHash)
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 
 	log.Info("executeProposalMsg", "action", "evmCall", "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String(), "err", err)

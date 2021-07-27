@@ -46,6 +46,8 @@ type Config struct {
 	Default          *big.Int `toml:",omitempty"`
 	MaxPrice         *big.Int `toml:",omitempty"`
 	IgnorePrice      *big.Int `toml:",omitempty"`
+
+	PredConfig
 }
 
 // OracleBackend includes all necessary background APIs for oracle.

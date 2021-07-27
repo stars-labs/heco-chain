@@ -369,6 +369,18 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	}
 }
 
+// DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
+func DefaultRopstenGenesisBlock() *Genesis {
+	return &Genesis{
+		Config:     params.RopstenChainConfig,
+		Nonce:      66,
+		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
+		GasLimit:   16777216,
+		Difficulty: big.NewInt(1048576),
+		Alloc:      decodePrealloc(ropstenAllocData),
+	}
+}
+
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one

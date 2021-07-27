@@ -163,22 +163,6 @@ func TestGenesisHashes(t *testing.T) {
 			genesis: DefaultGenesisBlock(),
 			hash:    params.MainnetGenesisHash,
 		},
-		{
-			genesis: DefaultGoerliGenesisBlock(),
-			hash:    params.GoerliGenesisHash,
-		},
-		{
-			genesis: DefaultRopstenGenesisBlock(),
-			hash:    params.RopstenGenesisHash,
-		},
-		{
-			genesis: DefaultRinkebyGenesisBlock(),
-			hash:    params.RinkebyGenesisHash,
-		},
-		{
-			genesis: DefaultCalaverasGenesisBlock(),
-			hash:    params.CalaverasGenesisHash,
-		},
 	}
 	for i, c := range cases {
 		b := c.genesis.MustCommit(rawdb.NewMemoryDatabase())

@@ -2,10 +2,10 @@ package systemcontract
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/congress/vmcaller"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"math"
@@ -55,12 +55,8 @@ func (s *hardForkSysGov) Execute(state *state.StateDB, header *types.Header, cha
 		return err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-	context := core.NewEVMContext(msg, header, chainContext, nil)
-	evm := vm.NewEVM(context, state, config, vm.Config{})
-
-	_, _, err = evm.Call(vm.AccountRef(msg.From()), *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	_, err = vmcaller.ExecuteMsg(msg, state, header, chainContext, config)
 
 	return
 }

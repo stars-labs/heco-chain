@@ -918,9 +918,10 @@ func TestStateDBAccessList(t *testing.T) {
 
 func TestErase(t *testing.T) {
 	// Create an initial state with a single contract
-	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	db := NewDatabase(rawdb.NewMemoryDatabase())
+	state, _ := New(common.Hash{}, db, nil)
 
-	addr := toAddr([]byte("so"))
+	addr := common.BytesToAddress([]byte("so"))
 	state.SetBalance(addr, big.NewInt(1))
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
@@ -929,14 +930,14 @@ func TestErase(t *testing.T) {
 	state.SetState(addr, skey, sval)     // Change the storage trie
 
 	root, _ := state.Commit(false)
-	state.Reset(root)
+	state, _ = New(root, db, nil)
 
 	// Simulate erase and then revert
 	id := state.Snapshot()
 	state.Erase(addr)
 	state.RevertToSnapshot(id)
 	root, _ = state.Commit(true)
-	state.Reset(root)
+	state, _ = New(root, db, nil)
 
 	obj := state.getStateObject(addr)
 	if code := obj.Code(state.db); !bytes.Equal(code, []byte("hello")) {
@@ -949,7 +950,7 @@ func TestErase(t *testing.T) {
 	state.Erase(addr)
 	// Commit the entire state and make sure we don't crash and have the correct state
 	root, _ = state.Commit(true)
-	state.Reset(root)
+	state, _ = New(root, db, nil)
 
 	obj = state.getStateObject(addr)
 	if obj == nil {

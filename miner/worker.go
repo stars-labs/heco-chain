@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"math/big"
 	"strconv"
 	"sync"

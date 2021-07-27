@@ -43,7 +43,7 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	)
 
 	// If we don't have an explicit author (i.e. not mining), extract from the header
-	if author == nil {
+	if author == nil && chain != nil {
 		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
 	} else {
 		beneficiary = *author
@@ -120,7 +120,7 @@ func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) 
 }
 
 func GetCanCreateFn(chain ChainContext) vm.CanCreateFunc {
-	if chain.Engine() == nil {
+	if chain == nil || chain.Engine() == nil {
 		return func(db vm.StateDB, address common.Address, height *big.Int) bool {
 			return true
 		}

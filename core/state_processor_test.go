@@ -254,7 +254,7 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(&fakeChainReader{config}, parent.Time()+10, &types.Header{
+		Difficulty: engine.CalcDifficulty(&fakeChainReader{config, engine}, parent.Time()+10, &types.Header{
 			Number:     parent.Number(),
 			Time:       parent.Time(),
 			Difficulty: parent.Difficulty(),

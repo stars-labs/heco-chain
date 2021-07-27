@@ -848,7 +848,7 @@ func getSysTransactions(block *types.Block, posa consensus.PoSA) ([]*RPCTransact
 	transactions := make([]*RPCTransaction, 0)
 	for i, tx := range txs {
 		if yes, _ := posa.IsSysTransaction(tx, header); yes {
-			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i)))
+			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i), nil))
 		}
 	}
 	return transactions, nil
