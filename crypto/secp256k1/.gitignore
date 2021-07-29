@@ -3,6 +3,9 @@
 *.a
 *.so
 
+# except the specific gmp static libs
+!/gmp/**
+
 # Folders
 _obj
 _test
