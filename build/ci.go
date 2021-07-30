@@ -1218,6 +1218,10 @@ func doXgo(cmdline []string) {
 	// Make sure xgo is available for cross compilation
 	build.MustRun(tc.Install(GOBIN, "github.com/karalabe/xgo@latest"))
 
+	var shFile, _ = filepath.Abs(filepath.Join("build", "set_goproxy_to_xgo.sh"))
+	// Try to use custom goproxy if set
+	build.MustRunCommand("sh", shFile)
+
 	// If all tools building is requested, build everything the builder wants
 	args := append(buildFlags(env), flag.Args()...)
 
