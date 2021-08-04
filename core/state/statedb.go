@@ -21,7 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/panjf2000/ants/v2"
 )
 
 type revision struct {
@@ -43,6 +46,7 @@ type revision struct {
 var (
 	// emptyRoot is the known root hash of an empty trie.
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	pool, _   = ants.NewPool(runtime.NumCPU(), ants.WithExpiryDuration(4*time.Second)) // block interval is 3
 )
 
 type proofList [][]byte
@@ -112,7 +116,7 @@ type StateDB struct {
 	AccountCommits       time.Duration
 	StorageReads         time.Duration
 	StorageHashes        time.Duration
-	StorageUpdates       time.Duration
+	StorageUpdates       time.Duration // rlp(account) included
 	StorageCommits       time.Duration
 	SnapshotAccountReads time.Duration
 	SnapshotStorageReads time.Duration
@@ -461,20 +465,36 @@ func (s *StateDB) Erase(addr common.Address) bool {
 // Setting, updating & deleting state object methods.
 //
 
+// concurrency safe
+func (s *StateDB) preUpdateStateObject(obj *stateObject) {
+	obj.updateTrieConcurrencySafe(s.db)
+
+	// If nothing changed, don't bother with hashing anything
+	if obj.trie != nil {
+		obj.data.Root = obj.trie.Hash()
+	}
+
+	// Encode the account and update the account trie
+	obj.accountRLP, obj.rlpErr = rlp.EncodeToBytes(obj)
+	if s.snap != nil {
+		obj.slimAccountRLP = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
+	}
+}
+
 // updateStateObject writes the given object to the trie.
 func (s *StateDB) updateStateObject(obj *stateObject) {
+	obj.updateSnapshot()
+
 	// Track the amount of time wasted on updating the account from the trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.AccountUpdates += time.Since(start) }(time.Now())
 	}
-	// Encode the account and update the account trie
 	addr := obj.Address()
-
-	data, err := rlp.EncodeToBytes(obj)
-	if err != nil {
-		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
+	if obj.rlpErr != nil {
+		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], obj.rlpErr))
 	}
-	if err = s.trie.TryUpdate(addr[:], data); err != nil {
+
+	if err := s.trie.TryUpdate(addr[:], obj.accountRLP); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
 
@@ -483,8 +503,11 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	// enough to track account updates at commit time, deletions need tracking
 	// at transaction boundary level to ensure we capture state clearing.
 	if s.snap != nil {
-		s.snapAccounts[obj.addrHash] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
+		s.snapAccounts[obj.addrHash] = obj.slimAccountRLP
 	}
+
+	// clear rlp result
+	obj.accountRLP, obj.slimAccountRLP, obj.rlpErr = nil, nil, nil
 }
 
 // deleteStateObject removes the given object from the state trie.
@@ -857,11 +880,28 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// the account prefetcher. Instead, let's process all the storage updates
 	// first, giving the account prefeches just a few more milliseconds of time
 	// to pull useful data from disk.
+	var wg sync.WaitGroup
 	for addr := range s.stateObjectsPending {
 		if obj := s.stateObjects[addr]; !obj.deleted {
-			obj.updateRoot(s.db)
+			obj.finalise(false)
+			wg.Add(1)
+			pool.Submit(func() {
+				s.preUpdateStateObject(obj)
+				wg.Done()
+			})
 		}
 	}
+
+	// Track the amount of time wasted on updating the storage trie and getting rlp of the account
+	var start time.Time
+	if metrics.EnabledExpensive {
+		start = time.Now()
+	}
+	wg.Wait()
+	if metrics.EnabledExpensive {
+		s.StorageUpdates += time.Since(start)
+	}
+
 	// Now we're about to start to write changes to the trie. The trie is so far
 	// _untouched_. We can check with the prefetcher, if it can give us a trie
 	// which has the same root, but also has some content loaded into it.

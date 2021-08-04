@@ -90,6 +90,15 @@ type stateObject struct {
 	dirtyCode bool // true if the code was updated
 	suicided  bool
 	deleted   bool
+
+	// only used between StateDB.preUpdateStateObject and StateDB.updateStateObject
+	accountRLP     []byte
+	rlpErr         error
+	slimAccountRLP []byte
+
+	// only used between updateTrieConcurrencySafe and updateSnapshot
+	snapStorage map[common.Hash][]byte
+	usedStorage [][]byte
 }
 
 // empty returns whether the account is considered empty.
@@ -325,23 +334,16 @@ func (s *stateObject) finalise(prefetch bool) {
 	}
 }
 
-// updateTrie writes cached storage modifications into the object's storage trie.
-// It will return nil if the trie has not been loaded and no changes have been made
-func (s *stateObject) updateTrie(db Database) Trie {
-	// Make sure all dirty slots are finalized into the pending storage area
-	s.finalise(false) // Don't prefetch any more, pull directly if need be
+func (s *stateObject) updateTrieConcurrencySafe(db Database) Trie {
 	if len(s.pendingStorage) == 0 {
 		return s.trie
 	}
-	// Track the amount of time wasted on updating the storage trie
-	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
-	}
+
 	// The snapshot storage map for the object
 	var storage map[common.Hash][]byte
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	hasher := s.db.hasher
+	hasher := crypto.NewKeccakState()
 
 	usedStorage := make([][]byte, 0, len(s.pendingStorage))
 	for key, value := range s.pendingStorage {
@@ -365,33 +367,45 @@ func (s *stateObject) updateTrie(db Database) Trie {
 				// Retrieve the old storage map, if available, create a new one otherwise
 				if storage = s.db.snapStorage[s.addrHash]; storage == nil {
 					storage = make(map[common.Hash][]byte)
-					s.db.snapStorage[s.addrHash] = storage
 				}
 			}
 			storage[crypto.HashDataWithCache(hasher, key[:])] = v // v will be nil if value is 0x00
 		}
 		usedStorage = append(usedStorage, common.CopyBytes(key[:])) // Copy needed for closure
 	}
-	if s.db.prefetcher != nil {
-		s.db.prefetcher.used(s.data.Root, usedStorage)
-	}
+	s.snapStorage = storage
+	s.usedStorage = usedStorage
+
 	if len(s.pendingStorage) > 0 {
 		s.pendingStorage = make(Storage)
 	}
 	return tr
 }
 
-// UpdateRoot sets the trie root to the current root hash of
-func (s *stateObject) updateRoot(db Database) {
-	// If nothing changed, don't bother with hashing anything
-	if s.updateTrie(db) == nil {
-		return
+// update s.db.snapStorage and s.db.prefetcher.used
+func (s *stateObject) updateSnapshot() {
+	if s.snapStorage != nil {
+		s.db.snapStorage[s.addrHash] = s.snapStorage
+		s.snapStorage = nil
 	}
-	// Track the amount of time wasted on hashing the storage trie
+	if s.db.prefetcher != nil && s.usedStorage != nil {
+		s.db.prefetcher.used(s.data.Root, s.usedStorage)
+		s.usedStorage = nil
+	}
+}
+
+// updateTrie writes cached storage modifications into the object's storage trie.
+func (s *stateObject) updateTrie(db Database) Trie {
+	// Make sure all dirty slots are finalized into the pending storage area
+	s.finalise(false) // Don't prefetch any more, pull directly if need be
+	// Track the amount of time wasted on updating the storage trie
 	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageHashes += time.Since(start) }(time.Now())
+		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
 	}
-	s.data.Root = s.trie.Hash()
+	tr := s.updateTrieConcurrencySafe(db)
+	s.updateSnapshot()
+
+	return tr
 }
 
 // CommitTrie the storage trie of the object to db.
