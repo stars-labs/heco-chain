@@ -21,12 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/gopool"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state/snapshot"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -35,7 +35,6 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/panjf2000/ants/v2"
 )
 
 type revision struct {
@@ -46,7 +45,6 @@ type revision struct {
 var (
 	// emptyRoot is the known root hash of an empty trie.
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	pool, _   = ants.NewPool(runtime.NumCPU(), ants.WithExpiryDuration(4*time.Second)) // block interval is 3
 )
 
 type proofList [][]byte
@@ -560,7 +558,7 @@ func (s *StateDB) PreloadAccounts(block *types.Block, signer types.Signer) {
 	objsChan := make(chan *stateObject, len(objsForPreload))
 	for addr := range objsForPreload {
 		addr := addr
-		pool.Submit(func() {
+		gopool.Submit(func() {
 			objsChan <- s.preloadAccountFromSnap(addr)
 		})
 	}
@@ -952,7 +950,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			obj.finalise(false)
 			wg.Add(1)
-			pool.Submit(func() {
+			gopool.Submit(func() {
 				s.preUpdateStateObject(obj)
 				wg.Done()
 			})
