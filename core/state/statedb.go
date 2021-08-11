@@ -533,6 +533,73 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	return nil
 }
 
+// preload accounts from Transactions
+func (s *StateDB) PreloadAccounts(block *types.Block, signer types.Signer) {
+	if s.snap == nil {
+		return
+	}
+
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) {
+			s.SnapshotAccountReads += time.Since(start)
+		}(time.Now())
+	}
+
+	objsForPreload := make(map[common.Address]*stateObject, 2*len(block.Transactions()))
+	for _, tx := range block.Transactions() {
+		from, err := types.Sender(signer, tx) // from have been cached
+		if err != nil {
+			break
+		}
+		objsForPreload[from] = nil
+		if tx.To() != nil {
+			objsForPreload[*tx.To()] = nil
+		}
+	}
+
+	objsChan := make(chan *stateObject, len(objsForPreload))
+	for addr := range objsForPreload {
+		addr := addr
+		pool.Submit(func() {
+			objsChan <- s.preloadAccountFromSnap(addr)
+		})
+	}
+
+	for i := 0; i < len(objsForPreload); i++ {
+		if obj := <-objsChan; obj != nil {
+			if _, ok := s.stateObjects[obj.Address()]; !ok {
+				s.setStateObject(obj)
+			}
+		}
+	}
+}
+
+func (s *StateDB) preloadAccountFromSnap(addr common.Address) *stateObject {
+	if s.snap == nil {
+		return nil
+	}
+
+	if acc, err := s.snap.Account(crypto.HashDataWithCache(nil, addr.Bytes())); err == nil {
+		if acc == nil {
+			return nil
+		}
+		data := &Account{
+			Nonce:    acc.Nonce,
+			Balance:  acc.Balance,
+			CodeHash: acc.CodeHash,
+			Root:     common.BytesToHash(acc.Root),
+		}
+		if len(data.CodeHash) == 0 {
+			data.CodeHash = emptyCodeHash
+		}
+		if data.Root == (common.Hash{}) {
+			data.Root = emptyRoot
+		}
+		return newObject(s, addr, *data)
+	}
+	return nil
+}
+
 // getDeletedStateObject is similar to getStateObject, but instead of returning
 // nil for a deleted state object, it returns the actual object with the deleted
 // flag set. This is needed by the state journal to revert to the correct s-

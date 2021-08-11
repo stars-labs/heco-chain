@@ -78,9 +78,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 		vmenv.Context.ExtraValidator = posa.CreateEvmExtraValidator(header, statedb)
 	}
+
+	// preload from and to of txs
+	signer := types.MakeSigner(p.config, header.Number)
+	statedb.PreloadAccounts(block, signer)
+
 	commonTxs := make([]*types.Transaction, 0, len(block.Transactions()))
 	systemTxs := make([]*types.Transaction, 0)
-	signer := types.MakeSigner(p.config, header.Number)
 	for i, tx := range block.Transactions() {
 		if isPoSA {
 			sender, err := types.Sender(signer, tx)
