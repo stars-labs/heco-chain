@@ -370,17 +370,17 @@ var (
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
 		Usage: "Megabytes of memory allocated to internal caching (default = 4096 mainnet full node, 128 light mode)",
-		Value: 1024,
+		Value: 4096,
 	}
 	CacheDatabaseFlag = cli.IntFlag{
 		Name:  "cache.database",
 		Usage: "Percentage of cache memory allowance to use for database io",
-		Value: 50,
+		Value: 40,
 	}
 	CacheTrieFlag = cli.IntFlag{
 		Name:  "cache.trie",
-		Usage: "Percentage of cache memory allowance to use for trie caching (default = 15% full mode, 30% archive mode)",
-		Value: 15,
+		Usage: "Percentage of cache memory allowance to use for trie caching (default = 20% full mode, 30% archive mode)",
+		Value: 20,
 	}
 	CacheTrieJournalFlag = cli.StringFlag{
 		Name:  "cache.trie.journal",
@@ -399,8 +399,8 @@ var (
 	}
 	CacheSnapshotFlag = cli.IntFlag{
 		Name:  "cache.snapshot",
-		Usage: "Percentage of cache memory allowance to use for snapshot caching (default = 10% full mode, 20% archive mode)",
-		Value: 10,
+		Usage: "Percentage of cache memory allowance to use for snapshot caching (default = 15% full mode, 20% archive mode)",
+		Value: 15,
 	}
 	CacheNoPrefetchFlag = cli.BoolFlag{
 		Name:  "cache.noprefetch",
