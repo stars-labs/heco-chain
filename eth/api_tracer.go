@@ -30,6 +30,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -193,6 +194,8 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 		pend    = new(sync.WaitGroup)
 		tasks   = make(chan *blockTraceTask, threads)
 		results = make(chan *blockTraceTask, threads)
+
+		posa, isPoSA = api.eth.engine.(consensus.PoSA)
 	)
 	for th := 0; th < threads; th++ {
 		pend.Add(1)
@@ -203,8 +206,19 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			for task := range tasks {
 				signer := types.MakeSigner(api.eth.blockchain.Config(), task.block.Number())
 
+				header := task.block.Header()
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
+					if isPoSA {
+						ok, _ := posa.IsSysTransaction(tx, header)
+						if ok {
+							// skip sys txs
+							task.results[i] = &txTraceResult{Result: &ethapi.ExecutionResult{
+								StructLogs: ethapi.FormatLogs(nil),
+							}}
+							continue
+						}
+					}
 					msg, _ := tx.AsMessage(signer)
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
@@ -458,11 +472,24 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 	if err != nil {
 		return nil, err
 	}
+	var commonTxs = block.Transactions()
+	posa, isPoSA := api.eth.engine.(consensus.PoSA)
+	if isPoSA {
+		header := block.Header()
+		for i, tx := range block.Transactions() {
+			ok, _ := posa.IsSysTransaction(tx, header)
+			if ok {
+				// sys tx are all behind common txs
+				commonTxs = commonTxs[:i]
+				break
+			}
+		}
+	}
 	// Execute all the transaction contained within the block concurrently
 	var (
 		signer = types.MakeSigner(api.eth.blockchain.Config(), block.Number())
 
-		txs     = block.Transactions()
+		txs     = commonTxs
 		results = make([]*txTraceResult, len(txs))
 
 		pend = new(sync.WaitGroup)
@@ -703,7 +730,19 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 // and returns them as a JSON object.
 func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Hash, config *TraceConfig) (interface{}, error) {
 	// Retrieve the transaction and assemble its EVM context
-	tx, blockHash, _, index := rawdb.ReadTransaction(api.eth.ChainDb(), hash)
+	tx, blockHash, blockNumber, index := rawdb.ReadTransaction(api.eth.ChainDb(), hash)
+	// Bypass posa sysTx
+	engine := api.eth.Engine()
+	posa, isPoSA := engine.(consensus.PoSA)
+	if isPoSA {
+		header := api.eth.BlockChain().GetHeader(blockHash, blockNumber)
+		isSysTx, err := posa.IsSysTransaction(tx, header)
+		if err != nil || isSysTx {
+			return &ethapi.ExecutionResult{
+				StructLogs: ethapi.FormatLogs(nil),
+			}, nil
+		}
+	}
 	if tx == nil {
 		return nil, fmt.Errorf("transaction %#x not found", hash)
 	}
