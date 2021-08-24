@@ -356,10 +356,12 @@ func (s *stateObject) updateTrieConcurrencySafe(db Database) Trie {
 		var v []byte
 		if (value == common.Hash{}) {
 			s.setError(tr.TryDelete(key[:]))
+			s.db.StorageDeleted += 1
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
 			s.setError(tr.TryUpdate(key[:], v))
+			s.db.StorageUpdated += 1
 		}
 		// If state snapshotting is active, cache the data til commit
 		if s.db.snap != nil {
@@ -410,23 +412,23 @@ func (s *stateObject) updateTrie(db Database) Trie {
 
 // CommitTrie the storage trie of the object to db.
 // This updates the trie root.
-func (s *stateObject) CommitTrie(db Database) error {
+func (s *stateObject) CommitTrie(db Database) (int, error) {
 	// If nothing changed, don't bother with hashing anything
 	if s.updateTrie(db) == nil {
-		return nil
+		return 0, nil
 	}
 	if s.dbErr != nil {
-		return s.dbErr
+		return 0, s.dbErr
 	}
 	// Track the amount of time wasted on committing the storage trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
-	root, err := s.trie.Commit(nil)
+	root, committed, err := s.trie.Commit(nil)
 	if err == nil {
 		s.data.Root = root
 	}
-	return err
+	return committed, err
 }
 
 // AddBalance adds amount to s's balance.
