@@ -3,6 +3,7 @@
 // the LICENSE file.
 
 // (!gofuzz AND cgo AND !amd64) OR (!gofuzz AND cgo AND windows AND amd64)
+//go:build (!gofuzz && cgo && !amd64) || (!gofuzz && cgo && windows && amd64)
 // +build !gofuzz,cgo,!amd64 !gofuzz,cgo,windows,amd64
 
 // Package secp256k1 wraps the bitcoin secp256k1 C library.
