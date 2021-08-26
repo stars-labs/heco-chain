@@ -55,6 +55,12 @@ const (
 	defaultTraceReexec = uint64(128)
 )
 
+var (
+	// copy from accounts/abi/bind/backends/simulated.go
+	errBlockDoesNotExist       = errors.New("block does not exist in blockchain")
+	errTransactionDoesNotExist = errors.New("transaction does not exist")
+)
+
 // Backend interface provides the common API services (that are provided by
 // both full and light clients) with access to necessary functions.
 type Backend interface {
@@ -252,6 +258,8 @@ func (api *API) traceChain(ctx context.Context, start, end *types.Block, config 
 		tasks    = make(chan *blockTraceTask, threads)
 		results  = make(chan *blockTraceTask, threads)
 		localctx = context.Background()
+
+		posa, isPoSA = api.backend.Engine().(consensus.PoSA)
 	)
 	for th := 0; th < threads; th++ {
 		pend.Add(1)
@@ -262,8 +270,19 @@ func (api *API) traceChain(ctx context.Context, start, end *types.Block, config 
 			for task := range tasks {
 				signer := types.MakeSigner(api.backend.ChainConfig(), task.block.Number())
 				blockCtx := core.NewEVMBlockContext(task.block.Header(), api.chainContext(localctx), nil)
+				header := task.block.Header()
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
+					if isPoSA {
+						ok, _ := posa.IsSysTransaction(tx, header)
+						if ok {
+							// skip sys txs
+							task.results[i] = &txTraceResult{Result: &ethapi.ExecutionResult{
+								StructLogs: ethapi.FormatLogs(nil),
+							}}
+							continue
+						}
+					}
 					msg, _ := tx.AsMessage(signer, task.block.BaseFee())
 					txctx := &Context{
 						BlockHash: task.block.Hash(),
@@ -495,10 +514,23 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 	if err != nil {
 		return nil, err
 	}
+	var commonTxs = block.Transactions()
+	posa, isPoSA := api.backend.Engine().(consensus.PoSA)
+	if isPoSA {
+		header := block.Header()
+		for i, tx := range block.Transactions() {
+			ok, _ := posa.IsSysTransaction(tx, header)
+			if ok {
+				// sys tx are all behind common txs
+				commonTxs = commonTxs[:i]
+				break
+			}
+		}
+	}
 	// Execute all the transaction contained within the block concurrently
 	var (
 		signer  = types.MakeSigner(api.backend.ChainConfig(), block.Number())
-		txs     = block.Transactions()
+		txs     = commonTxs
 		results = make([]*txTraceResult, len(txs))
 
 		pend = new(sync.WaitGroup)
@@ -691,7 +723,25 @@ func containsTx(block *types.Block, hash common.Hash) bool {
 // TraceTransaction returns the structured logs created during the execution of EVM
 // and returns them as a JSON object.
 func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *TraceConfig) (interface{}, error) {
-	_, blockHash, blockNumber, index, err := api.backend.GetTransaction(ctx, hash)
+	tx, blockHash, blockNumber, index, err := api.backend.GetTransaction(ctx, hash)
+	if tx == nil {
+		return nil, errTransactionDoesNotExist
+	}
+	// Bypass posa sysTx
+	engine := api.backend.Engine()
+	posa, isPoSA := engine.(consensus.PoSA)
+	if isPoSA {
+		header, _ := api.backend.HeaderByHash(ctx, blockHash)
+		if header == nil {
+			return nil, errBlockDoesNotExist
+		}
+		isSysTx, err := posa.IsSysTransaction(tx, header)
+		if err != nil || isSysTx {
+			return &ethapi.ExecutionResult{
+				StructLogs: ethapi.FormatLogs(nil),
+			}, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
