@@ -731,20 +731,23 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Hash, config *TraceConfig) (interface{}, error) {
 	// Retrieve the transaction and assemble its EVM context
 	tx, blockHash, blockNumber, index := rawdb.ReadTransaction(api.eth.ChainDb(), hash)
+	if tx == nil {
+		return nil, fmt.Errorf("transaction %#x not found", hash)
+	}
 	// Bypass posa sysTx
 	engine := api.eth.Engine()
 	posa, isPoSA := engine.(consensus.PoSA)
 	if isPoSA {
 		header := api.eth.BlockChain().GetHeader(blockHash, blockNumber)
+		if header == nil {
+			return nil, fmt.Errorf("header %v , %v not found", blockNumber, blockHash.String())
+		}
 		isSysTx, err := posa.IsSysTransaction(tx, header)
 		if err != nil || isSysTx {
 			return &ethapi.ExecutionResult{
 				StructLogs: ethapi.FormatLogs(nil),
 			}, nil
 		}
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("transaction %#x not found", hash)
 	}
 	reexec := defaultTraceReexec
 	if config != nil && config.Reexec != nil {
