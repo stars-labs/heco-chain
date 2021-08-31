@@ -90,7 +90,7 @@ var Defaults = Config{
 		DatasetsLockMmap: false,
 	},
 	NetworkId:               128,
-	TxLookupLimit:           2350000,
+	TxLookupLimit:           0,
 	LightPeers:              100,
 	UltraLightFraction:      75,
 	DatabaseCache:           512,
