@@ -118,7 +118,7 @@ var (
 		utils.MiningEnabledFlag,
 		utils.MinerThreadsFlag,
 		utils.MinerNotifyFlag,
-		utils.MinerGasTargetFlag,
+		utils.LegacyMinerGasTargetFlag,
 		utils.MinerGasLimitFlag,
 		utils.MinerGasPriceFlag,
 		utils.MinerEtherbaseFlag,
@@ -192,6 +192,10 @@ var (
 		utils.MetricsInfluxDBUsernameFlag,
 		utils.MetricsInfluxDBPasswordFlag,
 		utils.MetricsInfluxDBTagsFlag,
+		utils.MetricsEnableInfluxDBV2Flag,
+		utils.MetricsInfluxDBTokenFlag,
+		utils.MetricsInfluxDBBucketFlag,
+		utils.MetricsInfluxDBOrganizationFlag,
 	}
 )
 
