@@ -166,7 +166,7 @@ func sendEtherToRandomAccount(mainAccount *bind.TransactOpts, accounts []*bind.T
 
 	var lastHash common.Hash
 	for _, account := range accounts {
-		signedTx, _ := mainAccount.Signer(types.HomesteadSigner{}, mainAccount.From, generateTx(nonce, account.From, amount, token))
+		signedTx, _ := mainAccount.Signer(mainAccount.From, generateTx(nonce, account.From, amount, token))
 		if err := client.SendTransaction(context.Background(), signedTx); err != nil {
 			utils.Fatalf("Failed to send ether to random account: %v", err)
 		}
@@ -191,7 +191,7 @@ func generateSignedTransactions(total int, accounts []*bind.TransactOpts, amount
 
 		result := make([]interface{}, 0)
 		for i := start; i < end; i++ {
-			signedTx, _ := account.Signer(types.HomesteadSigner{}, account.From, generateTx(currentNonce, receiver, amount, token))
+			signedTx, _ := account.Signer(account.From, generateTx(currentNonce, receiver, amount, token))
 			result = append(result, signedTx)
 
 			currentNonce++
