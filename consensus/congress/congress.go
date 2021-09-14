@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/ethereum/go-ethereum/metrics"
+	"fmt"
 	"io"
 	"math"
 	"math/big"
@@ -29,6 +29,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/metrics"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -157,6 +159,7 @@ var (
 
 var (
 	getblacklistTimer = metrics.NewRegisteredTimer("congress/blacklist/get", nil)
+	getRulesTimer     = metrics.NewRegisteredTimer("congress/eventcheckrules/get", nil)
 )
 
 // StateFn gets state by the state root hash.
@@ -201,8 +204,10 @@ type Congress struct {
 	recents    *lru.ARCCache // Snapshots for recent block to speed up reorgs
 	signatures *lru.ARCCache // Signatures of recent blocks to speed up mining
 
-	blacklists *lru.ARCCache // Blacklist snapshots for recent blocks to speed up transactions validation
-	blLock     sync.Mutex    // Make sure only get blacklist once for each block
+	blacklists      *lru.Cache // blacklists caches recent blacklist to speed up transactions validation
+	blLock          sync.Mutex // Make sure only get blacklist once for each block
+	eventCheckRules *lru.Cache // eventCheckRules caches recent EventCheckRules to speed up log validation
+	rulesLock       sync.Mutex // Make sure only get eventCheckRules once for each block
 
 	proposals map[common.Address]bool // Current list of proposals we are pushing
 
@@ -216,6 +221,8 @@ type Congress struct {
 	stateFn StateFn // Function to get state by state root
 
 	abi map[string]abi.ABI // Interactive with system contracts
+
+	chain consensus.ChainHeaderReader // chain is only for reading parent headers when getting blacklist and rules
 
 	// The fields below are for testing only
 	fakeDiff bool // Skip difficulty verifications
@@ -232,21 +239,27 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database) *Congress {
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	signatures, _ := lru.NewARC(inmemorySignatures)
-	blacklists, _ := lru.NewARC(inmemoryBlacklist)
+	blacklists, _ := lru.New(inmemoryBlacklist)
+	rules, _ := lru.New(inmemoryBlacklist)
 
 	abi := systemcontract.GetInteractiveABI()
 
 	return &Congress{
-		chainConfig: chainConfig,
-		config:      &conf,
-		db:          db,
-		recents:     recents,
-		signatures:  signatures,
-		blacklists:  blacklists,
-		proposals:   make(map[common.Address]bool),
-		abi:         abi,
-		signer:      types.NewEIP155Signer(chainConfig.ChainID),
+		chainConfig:     chainConfig,
+		config:          &conf,
+		db:              db,
+		recents:         recents,
+		signatures:      signatures,
+		blacklists:      blacklists,
+		eventCheckRules: rules,
+		proposals:       make(map[common.Address]bool),
+		abi:             abi,
+		signer:          types.LatestSignerForChainID(chainConfig.ChainID),
 	}
+}
+
+func (c *Congress) SetChain(chain consensus.ChainHeaderReader) {
+	c.chain = chain
 }
 
 // SetStateFn sets the function to get state.
@@ -333,6 +346,11 @@ func (c *Congress) verifyHeader(chain consensus.ChainHeaderReader, header *types
 	if number > 0 && header.Difficulty == nil {
 		return errInvalidDifficulty
 	}
+	// Verify that the gas limit is <= 2^63-1
+	cap := uint64(0x7fffffffffffffff)
+	if header.GasLimit > cap {
+		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
+	}
 	// If all checks passed, validate any special fields for hard forks
 	if err := misc.VerifyForkHashes(chain.Config(), header, false); err != nil {
 		return err
@@ -364,6 +382,23 @@ func (c *Congress) verifyCascadingFields(chain consensus.ChainHeaderReader, head
 
 	if parent.Time+c.config.Period > header.Time {
 		return ErrInvalidTimestamp
+	}
+
+	// Verify that the gasUsed is <= gasLimit
+	if header.GasUsed > header.GasLimit {
+		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
+	}
+	if !chain.Config().IsLondon(header.Number) {
+		// Verify BaseFee not present before EIP-1559 fork.
+		if header.BaseFee != nil {
+			return fmt.Errorf("invalid baseFee before fork: have %d, want <nil>", header.BaseFee)
+		}
+		if err := misc.VerifyGaslimit(parent.GasLimit, header.GasLimit); err != nil {
+			return err
+		}
+	} else if err := misc.VerifyEip1559Header(chain.Config(), parent, header); err != nil {
+		// Verify the header's EIP-1559 attributes.
+		return err
 	}
 
 	// All basic checks passed, verify the seal and return
@@ -767,7 +802,7 @@ func (c *Congress) trySendBlockReward(chain consensus.ChainHeaderReader, header 
 	}
 
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, fee, math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, fee, math.MaxUint64, new(big.Int), data, true)
 
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		return err
@@ -852,7 +887,7 @@ func (c *Congress) initializeSystemContracts(chain consensus.ChainHeaderReader, 
 		}
 
 		nonce := state.GetNonce(header.Coinbase)
-		msg := types.NewMessage(header.Coinbase, &contract.addr, nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+		msg := vmcaller.NewLegacyMessage(header.Coinbase, &contract.addr, nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 
 		if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 			return err
@@ -880,7 +915,7 @@ func (c *Congress) getTopValidators(chain consensus.ChainHeaderReader, header *t
 		return []common.Address{}, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetValidatorAddr(parent.Number, c.chainConfig), 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(parent.Number, c.chainConfig), 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := vmcaller.ExecuteMsg(msg, statedb, parent, newChainContext(chain, c), c.chainConfig)
@@ -915,7 +950,7 @@ func (c *Congress) updateValidators(vals []common.Address, chain consensus.Chain
 
 	// call contract
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		log.Error("Can't update validators to contract", "err", err)
 		return err
@@ -935,7 +970,7 @@ func (c *Congress) punishValidator(val common.Address, chain consensus.ChainHead
 
 	// call contract
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		log.Error("Can't punish validator", "err", err)
 		return err
@@ -955,7 +990,7 @@ func (c *Congress) decreaseMissedBlocksCounter(chain consensus.ChainHeaderReader
 
 	// call contract
 	nonce := state.GetNonce(header.Coinbase)
-	msg := types.NewMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
 	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 		log.Error("Can't decrease missed blocks counter for validator", "err", err)
 		return err
@@ -1134,21 +1169,20 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 
 func (c *Congress) PreHandle(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
 	if c.chainConfig.RedCoastBlock != nil && c.chainConfig.RedCoastBlock.Cmp(header.Number) == 0 {
-		return systemcontract.ApplySystemContractUpgrade(state, header, newChainContext(chain, c), c.chainConfig)
+		return systemcontract.ApplySystemContractUpgrade(systemcontract.SysContractV1, state, header, newChainContext(chain, c), c.chainConfig)
+	}
+	if c.chainConfig.SophonBlock != nil && c.chainConfig.SophonBlock.Cmp(header.Number) == 0 {
+		return systemcontract.ApplySystemContractUpgrade(systemcontract.SysContractV2, state, header, newChainContext(chain, c), c.chainConfig)
 	}
 	return nil
 }
 
 // IsSysTransaction checks whether a specific transaction is a system transaction.
-func (c *Congress) IsSysTransaction(tx *types.Transaction, header *types.Header) (bool, error) {
+func (c *Congress) IsSysTransaction(sender common.Address, tx *types.Transaction, header *types.Header) (bool, error) {
 	if tx.To() == nil {
 		return false, nil
 	}
 
-	sender, err := types.Sender(c.signer, tx)
-	if err != nil {
-		return false, errors.New("UnAuthorized transaction")
-	}
 	to := tx.To()
 	if sender == header.Coinbase && *to == systemcontract.SysGovToAddr && tx.GasPrice().Sign() == 0 {
 		return true, nil
@@ -1178,25 +1212,22 @@ func (c *Congress) CanCreate(state consensus.StateReader, addr common.Address, h
 
 // ValidateTx do a consensus-related validation on the given transaction at the given header and state.
 // the parentState must be the state of the header's parent block.
-func (c *Congress) ValidateTx(tx *types.Transaction, header *types.Header, parentState *state.StateDB) error {
+func (c *Congress) ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error {
 	// Must use the parent state for current validation,
 	// so we must starting the validation after redCoastBlock
 	if c.chainConfig.RedCoastBlock != nil && c.chainConfig.RedCoastBlock.Cmp(header.Number) < 0 {
-		from, err := types.Sender(c.signer, tx)
-		if err != nil {
-			return err
-		}
 		m, err := c.getBlacklist(header, parentState)
 		if err != nil {
-			log.Error("can't get blacklist", "err", err)
 			return err
 		}
-		if d, exist := m[from]; exist && (d != DirectionTo) {
-			return errors.New("address denied")
+		if d, exist := m[sender]; exist && (d != DirectionTo) {
+			log.Trace("Hit blacklist", "tx", tx.Hash().String(), "addr", sender.String(), "direction", d)
+			return types.ErrAddressDenied
 		}
 		if to := tx.To(); to != nil {
 			if d, exist := m[*to]; exist && (d != DirectionFrom) {
-				return errors.New("address denied")
+				log.Trace("Hit blacklist", "tx", tx.Hash().String(), "addr", to.String(), "direction", d)
+				return types.ErrAddressDenied
 			}
 		}
 	}
@@ -1218,30 +1249,33 @@ func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB
 		return v.(map[common.Address]blacklistDirection), nil
 	}
 
-	abi := c.abi[systemcontract.AddressListContractName]
+	// if the last updates is long ago, we don't need to get blacklist from the contract.
+	if c.chainConfig.SophonBlock != nil && header.Number.Cmp(c.chainConfig.SophonBlock) > 0 {
+		num := header.Number.Uint64()
+		lastUpdated := lastBlacklistUpdatedNumber(parentState)
+		if num >= 2 && num > lastUpdated+1 {
+			parent := c.chain.GetHeader(header.ParentHash, num-1)
+			if parent != nil {
+				if v, ok := c.blacklists.Get(parent.ParentHash); ok {
+					m := v.(map[common.Address]blacklistDirection)
+					c.blacklists.Add(header.ParentHash, m)
+					return m, nil
+				}
+			} else {
+				log.Error("Unexpected error when getBlacklist, can not get parent from chain", "number", num, "blockHash", header.Hash(), "parentHash", header.ParentHash)
+			}
+		}
+	}
+
+	// can't get blacklist from cache, try to call the contract
+	alABI := c.abi[systemcontract.AddressListContractName]
 	get := func(method string) ([]common.Address, error) {
-		data, err := abi.Pack(method)
+		ret, err := c.commonCallContract(header, parentState, alABI, systemcontract.AddressListContractAddr, method, 1)
 		if err != nil {
-			log.Error("Can't pack data ", "method", method, "err", err)
-			return []common.Address{}, err
+			log.Error(fmt.Sprintf("%s failed", method), "err", err)
+			return nil, err
 		}
 
-		msg := types.NewMessage(header.Coinbase, &systemcontract.AddressListContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-		// Note: It's safe to use minimalChainContext for executing AddressListContract
-		result, err := vmcaller.ExecuteMsg(msg, parentState, header, newMinimalChainContext(c), c.chainConfig)
-		if err != nil {
-			return []common.Address{}, err
-		}
-
-		// unpack data
-		ret, err := abi.Unpack(method, result)
-		if err != nil {
-			return []common.Address{}, err
-		}
-		if len(ret) != 1 {
-			return []common.Address{}, errors.New("invalid params length")
-		}
 		blacks, ok := ret[0].([]common.Address)
 		if !ok {
 			return []common.Address{}, errors.New("invalid blacklist format")
@@ -1272,6 +1306,137 @@ func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB
 	return m, nil
 }
 
+func (c *Congress) CreateEvmExtraValidator(header *types.Header, parentState *state.StateDB) types.EvmExtraValidator {
+	if c.chainConfig.SophonBlock != nil && c.chainConfig.SophonBlock.Cmp(header.Number) < 0 {
+		blacks, err := c.getBlacklist(header, parentState)
+		if err != nil {
+			log.Error("getBlacklist failed", "err", err)
+			return nil
+		}
+		rules, err := c.getEventCheckRules(header, parentState)
+		if err != nil {
+			log.Error("getEventCheckRules failed", "err", err)
+			return nil
+		}
+		return &blacklistValidator{
+			blacks: blacks,
+			rules:  rules,
+		}
+	}
+	return nil
+}
+
+func (c *Congress) getEventCheckRules(header *types.Header, parentState *state.StateDB) (map[common.Hash]*EventCheckRule, error) {
+	defer func(start time.Time) {
+		getRulesTimer.UpdateSince(start)
+	}(time.Now())
+
+	if v, ok := c.eventCheckRules.Get(header.ParentHash); ok {
+		return v.(map[common.Hash]*EventCheckRule), nil
+	}
+
+	c.rulesLock.Lock()
+	defer c.rulesLock.Unlock()
+	if v, ok := c.eventCheckRules.Get(header.ParentHash); ok {
+		return v.(map[common.Hash]*EventCheckRule), nil
+	}
+
+	// if the last updates is long ago, we don't need to get blacklist from the contract.
+	num := header.Number.Uint64()
+	lastUpdated := lastRulesUpdatedNumber(parentState)
+	if num >= 2 && num > lastUpdated+1 {
+		parent := c.chain.GetHeader(header.ParentHash, num-1)
+		if parent != nil {
+			if v, ok := c.eventCheckRules.Get(parent.ParentHash); ok {
+				m := v.(map[common.Hash]*EventCheckRule)
+				c.eventCheckRules.Add(header.ParentHash, m)
+				return m, nil
+			}
+		} else {
+			log.Error("Unexpected error when getEventCheckRules, can not get parent from chain", "number", num, "blockHash", header.Hash(), "parentHash", header.ParentHash)
+		}
+	}
+
+	// can't get blacklist from cache, try to call the contract
+	alABI := c.abi[systemcontract.AddressListContractName]
+	method := "getRuleByIndex"
+	get := func(i uint32) (common.Hash, int, common.AddressCheckType, error) {
+		ret, err := c.commonCallContract(header, parentState, alABI, systemcontract.AddressListContractAddr, method, 3, i)
+		if err != nil {
+			return common.Hash{}, 0, common.CheckNone, err
+		}
+		sig := ret[0].([32]byte)
+		idx := ret[1].(*big.Int).Uint64()
+		ct := ret[2].(uint8)
+
+		return sig, int(idx), common.AddressCheckType(ct), nil
+	}
+
+	cnt, err := c.getEventCheckRulesLen(header, parentState)
+	if err != nil {
+		log.Error("getEventCheckRulesLen failed", "err", err)
+		return nil, err
+	}
+	rules := make(map[common.Hash]*EventCheckRule)
+	for i := 0; i < cnt; i++ {
+		sig, idx, ct, err := get(uint32(i))
+		if err != nil {
+			log.Error("getRuleByIndex failed", "index", i, "number", num, "blockHash", header.Hash(), "err", err)
+			return nil, err
+		}
+		rule, exist := rules[sig]
+		if !exist {
+			rule = &EventCheckRule{
+				EventSig: sig,
+				Checks:   make(map[int]common.AddressCheckType),
+			}
+			rules[sig] = rule
+		}
+		rule.Checks[idx] = ct
+	}
+
+	c.eventCheckRules.Add(header.ParentHash, rules)
+	return rules, nil
+}
+
+func (c *Congress) getEventCheckRulesLen(header *types.Header, parentState *state.StateDB) (int, error) {
+	ret, err := c.commonCallContract(header, parentState, c.abi[systemcontract.AddressListContractName], systemcontract.AddressListContractAddr, "rulesLen", 1)
+	if err != nil {
+		return 0, err
+	}
+	ln, ok := ret[0].(uint32)
+	if !ok {
+		return 0, fmt.Errorf("unexpected output type, value: %v", ret[0])
+	}
+	return int(ln), nil
+}
+
+func (c *Congress) commonCallContract(header *types.Header, statedb *state.StateDB, contractABI abi.ABI, addr common.Address, method string, expectResultLen int, args ...interface{}) ([]interface{}, error) {
+	data, err := contractABI.Pack(method, args...)
+	if err != nil {
+		log.Error("Can't pack data ", "method", method, "err", err)
+		return nil, err
+	}
+
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+
+	// Note: It's safe to use minimalChainContext for executing AddressListContract
+	result, err := vmcaller.ExecuteMsg(msg, statedb, header, newMinimalChainContext(c), c.chainConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// unpack data
+	ret, err := contractABI.Unpack(method, result)
+	if err != nil {
+		return nil, err
+	}
+	if len(ret) != expectResultLen {
+		return nil, errors.New("invalid result length")
+	}
+	return ret, nil
+}
+
 // Since the state variables are as follow:
 //    bool public initialized;
 //    bool public enabled;
@@ -1284,7 +1449,6 @@ func (c *Congress) getBlacklist(header *types.Header, parentState *state.StateDB
 // `pendingAdmin` stores at slot 1, and the position for `devs` is 2.
 func isDeveloperVerificationEnabled(state consensus.StateReader) bool {
 	compactValue := state.GetState(systemcontract.AddressListContractAddr, common.Hash{})
-	log.Debug("isDeveloperVerificationEnabled", "raw", compactValue.String())
 	// Layout of slot 0:
 	// [0   -    9][10-29][  30   ][    31     ]
 	// [zero bytes][admin][enabled][initialized]
@@ -1296,4 +1460,14 @@ func calcSlotOfDevMappingKey(addr common.Address) common.Hash {
 	p := make([]byte, common.HashLength)
 	binary.BigEndian.PutUint16(p[common.HashLength-2:], uint16(systemcontract.DevMappingPosition))
 	return crypto.Keccak256Hash(addr.Hash().Bytes(), p)
+}
+
+func lastBlacklistUpdatedNumber(state consensus.StateReader) uint64 {
+	value := state.GetState(systemcontract.AddressListContractAddr, systemcontract.BlackLastUpdatedNumberPosition)
+	return value.Big().Uint64()
+}
+
+func lastRulesUpdatedNumber(state consensus.StateReader) uint64 {
+	value := state.GetState(systemcontract.AddressListContractAddr, systemcontract.RulesLastUpdatedNumberPosition)
+	return value.Big().Uint64()
 }

@@ -259,77 +259,152 @@ const SysGovInteractiveABI = `
 
 const AddrListInteractiveABI = `
 [
-    {
-        "inputs": [],
-        "name": "devVerifyEnabled",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getBlacksFrom",
-        "outputs": [
-            {
-                "internalType": "address[]",
-                "name": "",
-                "type": "address[]"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getBlacksTo",
-        "outputs": [
-            {
-                "internalType": "address[]",
-                "name": "",
-                "type": "address[]"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "_admin",
-                "type": "address"
-            }
-        ],
-        "name": "initialize",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "addr",
-                "type": "address"
-            }
-        ],
-        "name": "isDeveloper",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    }
+	{
+	  "inputs": [],
+	  "name": "blackLastUpdatedNumber",
+	  "outputs": [
+		{
+		  "internalType": "uint256",
+		  "name": "",
+		  "type": "uint256"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [],
+	  "name": "devVerifyEnabled",
+	  "outputs": [
+		{
+		  "internalType": "bool",
+		  "name": "",
+		  "type": "bool"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [],
+	  "name": "getBlacksFrom",
+	  "outputs": [
+		{
+		  "internalType": "address[]",
+		  "name": "",
+		  "type": "address[]"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [],
+	  "name": "getBlacksTo",
+	  "outputs": [
+		{
+		  "internalType": "address[]",
+		  "name": "",
+		  "type": "address[]"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [
+		{
+		  "internalType": "uint32",
+		  "name": "i",
+		  "type": "uint32"
+		}
+	  ],
+	  "name": "getRuleByIndex",
+	  "outputs": [
+		{
+		  "internalType": "bytes32",
+		  "name": "",
+		  "type": "bytes32"
+		},
+		{
+		  "internalType": "uint128",
+		  "name": "",
+		  "type": "uint128"
+		},
+		{
+		  "internalType": "enum AddressList.CheckType",
+		  "name": "",
+		  "type": "uint8"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [],
+	  "name": "initializeV2",
+	  "outputs": [],
+	  "stateMutability": "nonpayable",
+	  "type": "function"
+	},
+	{
+	  "inputs": [
+		{
+		  "internalType": "address",
+		  "name": "_admin",
+		  "type": "address"
+		}
+	  ],
+	  "name": "initialize",
+	  "outputs": [],
+	  "stateMutability": "nonpayable",
+	  "type": "function"
+	},
+	{
+	  "inputs": [
+		{
+		  "internalType": "address",
+		  "name": "addr",
+		  "type": "address"
+		}
+	  ],
+	  "name": "isDeveloper",
+	  "outputs": [
+		{
+		  "internalType": "bool",
+		  "name": "",
+		  "type": "bool"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [],
+	  "name": "rulesLastUpdatedNumber",
+	  "outputs": [
+		{
+		  "internalType": "uint256",
+		  "name": "",
+		  "type": "uint256"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [],
+	  "name": "rulesLen",
+	  "outputs": [
+		{
+		  "internalType": "uint32",
+		  "name": "",
+		  "type": "uint32"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	}
 ]`
 
 const ValidatorsV1InteractiveABI = `[
@@ -428,15 +503,33 @@ const PunishV1InteractiveABI = `[
 // DevMappingPosition is the position of the state variable `devs`.
 // Since the state variables are as follow:
 //    bool public initialized;
-//    bool public enabled;
+//    bool public devVerifyEnabled;
 //    address public admin;
 //    address public pendingAdmin;
+//
 //    mapping(address => bool) private devs;
+//
+//    //NOTE: make sure this list is not too large!
+//    address[] blacksFrom;
+//    address[] blacksTo;
+//    mapping(address => uint256) blacksFromMap;      // address => index+1
+//    mapping(address => uint256) blacksToMap;        // address => index+1
+//
+//    uint256 public blackLastUpdatedNumber; // last block number when the black list is updated
+//    uint256 public rulesLastUpdatedNumber;  // last block number when the rules are updated
+//    // event check rules
+//    EventCheckRule[] rules;
+//    mapping(bytes32 => mapping(uint128 => uint256)) rulesMap;   // eventSig => checkIdx => indexInArray+1
 //
 // according to [Layout of State Variables in Storage](https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html),
 // and after optimizer enabled, the `initialized`, `enabled` and `admin` will be packed, and stores at slot 0,
 // `pendingAdmin` stores at slot 1, so the position for `devs` is 2.
 const DevMappingPosition = 2
+
+var (
+	BlackLastUpdatedNumberPosition = common.BytesToHash([]byte{0x07})
+	RulesLastUpdatedNumberPosition = common.BytesToHash([]byte{0x08})
+)
 
 var (
 	ValidatorsContractName   = "validators"

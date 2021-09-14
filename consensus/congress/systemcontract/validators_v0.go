@@ -36,7 +36,7 @@ func (v *ValidatorV0) GetTopValidators(statedb *state.StateDB, header *types.Hea
 		return []common.Address{}, err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &v.contractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &v.contractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	result, err := vmcaller.ExecuteMsg(msg, statedb, header, chainContext, config)
 	if err != nil {
@@ -68,7 +68,7 @@ func (v *ValidatorV0) GetValidatorFeeAddr(val common.Address, statedb *state.Sta
 		log.Error("Can't pack data for GetValidatorInfo", "error", err)
 		return common.Address{}, err
 	}
-	msg := types.NewMessage(header.Coinbase, &v.contractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &v.contractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 	// use parent
 	result, err := vmcaller.ExecuteMsg(msg, statedb, header, chainContext, config)

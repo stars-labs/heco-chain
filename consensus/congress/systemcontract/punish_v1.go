@@ -42,7 +42,7 @@ func (s *hardForkPunishV1) Execute(state *state.StateDB, header *types.Header, c
 		return err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &PunishV1ContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &PunishV1ContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 	_, err = vmcaller.ExecuteMsg(msg, state, header, chainContext, config)
 
 	return

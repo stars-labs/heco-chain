@@ -1,6 +1,9 @@
 package systemcontract
 
 import (
+	"math"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/congress/vmcaller"
 	"github.com/ethereum/go-ethereum/core"
@@ -8,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"math"
-	"math/big"
 )
 
 var (
@@ -72,7 +73,7 @@ func (s *hardForkValidatorsV1) Execute(state *state.StateDB, header *types.Heade
 		return err
 	}
 
-	msg := types.NewMessage(header.Coinbase, &ValidatorsV1ContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &ValidatorsV1ContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 	_, err = vmcaller.ExecuteMsg(msg, state, header, chainContext, config)
 
 	return

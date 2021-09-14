@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	jamIndexMeter = metrics.NewRegisteredMeter("txpool/jamindex", nil)
+	jamIndexMeter = metrics.NewRegisteredGauge("txpool/jamindex", nil)
 )
 
 var oneGwei = big.NewInt(1e9)
@@ -114,7 +114,7 @@ func (indexer *txJamIndexer) updateLoop() {
 			indexer.head = h
 		case <-tick.C:
 			d := indexer.undCounter.Sum()
-			pendings, _ := indexer.pool.Pending()
+			pendings, _ := indexer.pool.Pending(true)
 			if d == 0 && len(pendings) == 0 {
 				break
 			}
@@ -159,7 +159,7 @@ func (indexer *txJamIndexer) updateLoop() {
 			indexer.jamLock.Lock()
 			indexer.currentJamIndex = idx
 			indexer.jamLock.Unlock()
-			jamIndexMeter.Mark(int64(idx))
+			jamIndexMeter.Update(int64(idx))
 
 			var dists []time.Duration
 			sort.Slice(durs, func(i, j int) bool {

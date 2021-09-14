@@ -1,16 +1,5 @@
 package gasprice
 
-import "math/big"
-
-type Config struct {
-	Blocks     int
-	Percentile int
-	Default    *big.Int `toml:",omitempty"`
-	MaxPrice   *big.Int `toml:",omitempty"`
-
-	PredConfig
-}
-
 type PredConfig struct {
 	PredictIntervalSecs int
 	MinTxCntPerBlock    int // minimum tx cnt per block for caculations.
