@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	jamIndexMeter = metrics.NewRegisteredMeter("txpool/jamindex", nil)
+	jamIndexMeter = metrics.NewRegisteredGauge("txpool/jamindex", nil)
 )
 
 var oneGwei = big.NewInt(1e9)
@@ -159,7 +159,7 @@ func (indexer *txJamIndexer) updateLoop() {
 			indexer.jamLock.Lock()
 			indexer.currentJamIndex = idx
 			indexer.jamLock.Unlock()
-			jamIndexMeter.Mark(int64(idx))
+			jamIndexMeter.Update(int64(idx))
 
 			var dists []time.Duration
 			sort.Slice(durs, func(i, j int) bool {

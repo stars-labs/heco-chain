@@ -16,6 +16,9 @@ func ExecuteMsg(msg core.Message, state *state.StateDB, header *types.Header, ch
 	vmenv := vm.NewEVM(blockContext, core.NewEVMTxContext(msg), state, chainConfig, vm.Config{})
 
 	ret, _, err = vmenv.Call(vm.AccountRef(msg.From()), *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+	// Finalise the statedb so any changes can take effect,
+	// and especially if the `from` account is empty, it can be finally deleted.
+	state.Finalise(true)
 
 	return ret, err
 }

@@ -80,6 +80,9 @@ type Ethereum struct {
 	engine         consensus.Engine
 	accountManager *accounts.Manager
 
+	isPoSA bool
+	posa   consensus.PoSA
+
 	bloomRequests     chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer      *core.ChainIndexer             // Bloom indexer operating during block imports
 	closeBloomHandler chan struct{}
@@ -155,6 +158,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
 	}
+	eth.posa, eth.isPoSA = eth.engine.(consensus.PoSA)
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
@@ -212,6 +216,8 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		congressEngine.SetStateFn(eth.blockchain.StateAt)
 		// set consensus-related transaction validator
 		eth.txPool.InitExTxValidator(congressEngine)
+		//
+		congressEngine.SetChain(eth.blockchain)
 	}
 
 	// Permit the downloader to use the trie cache allowance during fast sync

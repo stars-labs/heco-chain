@@ -38,6 +38,7 @@ var (
 	ErrTxTypeNotSupported   = errors.New("transaction type not supported")
 	ErrGasFeeCapTooLow      = errors.New("fee cap less than base fee")
 	errEmptyTypedTx         = errors.New("empty typed transaction bytes")
+	ErrAddressDenied        = errors.New("address denied")
 )
 
 // Transaction types.

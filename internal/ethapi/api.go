@@ -825,7 +825,7 @@ func (s *PublicBlockChainAPI) GetSysTransactionsByBlockNumber(ctx context.Contex
 	if err != nil || block == nil {
 		return nil, err
 	}
-	return getSysTransactions(block, posa)
+	return s.getSysTransactions(block, posa)
 }
 
 func (s *PublicBlockChainAPI) GetSysTransactionsByBlockHash(ctx context.Context, hash common.Hash) ([]*RPCTransaction, error) {
@@ -837,17 +837,19 @@ func (s *PublicBlockChainAPI) GetSysTransactionsByBlockHash(ctx context.Context,
 	if err != nil || block == nil {
 		return nil, err
 	}
-	return getSysTransactions(block, posa)
+	return s.getSysTransactions(block, posa)
 }
 
-func getSysTransactions(block *types.Block, posa consensus.PoSA) ([]*RPCTransaction, error) {
+func (s *PublicBlockChainAPI) getSysTransactions(block *types.Block, posa consensus.PoSA) ([]*RPCTransaction, error) {
 	header := block.Header()
 	bhash := block.Hash()
 	bnumber := block.NumberU64()
 	txs := block.Transactions()
 	transactions := make([]*RPCTransaction, 0)
+	signer := types.MakeSigner(s.b.ChainConfig(), header.Number)
 	for i, tx := range txs {
-		if yes, _ := posa.IsSysTransaction(tx, header); yes {
+		sender, _ := types.Sender(signer, tx)
+		if yes, _ := posa.IsSysTransaction(sender, tx, header); yes {
 			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i), nil))
 		}
 	}

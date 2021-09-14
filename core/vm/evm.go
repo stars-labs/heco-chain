@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
@@ -71,6 +72,8 @@ type BlockContext struct {
 	GetHash GetHashFunc
 	// CanCreate returns whether a given address can create a new contract
 	CanCreate CanCreateFunc
+	// ExtraValidator do some extra validation to a message during it's execution
+	ExtraValidator types.EvmExtraValidator
 
 	// Block information
 	Coinbase    common.Address // Provides information for COINBASE
@@ -176,6 +179,15 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
+
+	// Check whether the involved addresses are denied if needed
+	if evm.Context.ExtraValidator != nil && evm.depth > 0 {
+		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+			return nil, gas, types.ErrAddressDenied
+		}
+	}
+
 	// Fail if we're trying to transfer more than the available balance
 	if value.Sign() != 0 && !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, gas, ErrInsufficientBalance
@@ -252,6 +264,15 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
+
+	// Check whether the involved addresses are denied if needed
+	if evm.Context.ExtraValidator != nil {
+		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+			return nil, gas, types.ErrAddressDenied
+		}
+	}
+
 	// Fail if we're trying to transfer more than the available balance
 	// Note although it's noop to transfer X ether to caller itself. But
 	// if caller doesn't have enough balance, it would be an error to allow
@@ -295,6 +316,15 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
+
+	// Check whether the involved addresses are denied if needed
+	if evm.Context.ExtraValidator != nil {
+		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+			return nil, gas, types.ErrAddressDenied
+		}
+	}
+
 	var snapshot = evm.StateDB.Snapshot()
 
 	// It is allowed to call precompiles, even via delegatecall
@@ -329,6 +359,15 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
+
+	// Check whether the involved addresses are denied if needed
+	if evm.Context.ExtraValidator != nil {
+		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+			return nil, gas, types.ErrAddressDenied
+		}
+	}
+
 	// We take a snapshot here. This is a bit counter-intuitive, and could probably be skipped.
 	// However, even a staticcall is considered a 'touch'. On mainnet, static calls were introduced
 	// after all empty accounts were deleted, so this is not required. However, if we omit this,

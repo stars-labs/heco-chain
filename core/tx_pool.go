@@ -141,7 +141,7 @@ type blockChain interface {
 }
 
 type exTxValidator interface {
-	ValidateTx(tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
+	ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -260,6 +260,11 @@ type TxPool struct {
 
 	txValidator    exTxValidator // A specific consensus can use this to do some extra validation to a transaction
 	nextFakeHeader *types.Header // A fake header of next block for extra transaction validation
+	// disableExValidate will disable the extra tx validation during a period if it's true,
+	// there's a special case we need this:
+	// during a large chain insertion, the ChainHeadEvent will not be fired in time, then some old trie-nodes
+	// will be discarded due to GC, and it will cause failure to get blacklist.
+	disableExValidate bool
 
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
@@ -657,8 +662,15 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	// do some extra validation if needed
-	if pool.txValidator != nil {
-		return pool.txValidator.ValidateTx(tx, pool.nextFakeHeader, pool.currentState)
+	if pool.txValidator != nil && !pool.disableExValidate {
+		err := pool.txValidator.ValidateTx(from, tx, pool.nextFakeHeader, pool.currentState)
+		if err == types.ErrAddressDenied {
+			return err
+		}
+		if err != nil {
+			log.Info("ValidateTx error", "err", err)
+			pool.disableExValidate = true
+		}
 	}
 	return nil
 }
@@ -1299,6 +1311,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	next := new(big.Int).Add(newHead.Number, big.NewInt(1))
 	if pool.txValidator != nil {
 		pool.makeFakeHeader(newHead)
+		pool.disableExValidate = false
 	}
 
 	// Inject any transactions discarded due to reorgs

@@ -1,6 +1,9 @@
 package systemcontract
 
 import (
+	"math"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/congress/vmcaller"
 	"github.com/ethereum/go-ethereum/core"
@@ -8,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"math"
-	"math/big"
 )
 
 var (

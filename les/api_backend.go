@@ -187,6 +187,15 @@ func (b *LesApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	}
 	txContext := core.NewEVMTxContext(msg)
 	context := core.NewEVMBlockContext(header, b.eth.blockchain, nil)
+	if b.eth.engine != nil {
+		posa, isPoSA := b.eth.engine.(consensus.PoSA)
+		if isPoSA {
+			// make sure to use parent state to avoid mix up inner cache
+			parent := b.eth.blockchain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+			parentState := light.NewState(ctx, parent, b.eth.odr)
+			context.ExtraValidator = posa.CreateEvmExtraValidator(header, parentState)
+		}
+	}
 	return vm.NewEVM(context, txContext, state, b.eth.chainConfig, *vmConfig), state.Error, nil
 }
 
@@ -333,4 +342,8 @@ func (b *LesApiBackend) StateAtBlock(ctx context.Context, block *types.Block, re
 
 func (b *LesApiBackend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, error) {
 	return b.eth.stateAtTransaction(ctx, block, txIndex, reexec)
+}
+
+func (b *LesApiBackend) ChainHeaderReader() consensus.ChainHeaderReader {
+	return b.eth.blockchain
 }

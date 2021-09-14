@@ -180,6 +180,19 @@ func init() {
 }
 
 func setupLogHandler(ctx *cli.Context) (handler log.Handler) {
+	defer func() {
+		if !ctx.GlobalBool(metricLogFlag.Name) {
+			inner := handler
+			handler = log.FuncHandler(func(r *log.Record) error {
+				if r.Msg == metricKey {
+					return nil
+				}
+
+				return inner.Log(r)
+			})
+		}
+	}()
+
 	var format log.Format
 	output := io.Writer(os.Stderr)
 	if ctx.GlobalBool(logjsonFlag.Name) {

@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -141,13 +142,22 @@ type PoSA interface {
 	PreHandle(chain ChainHeaderReader, header *types.Header, state *state.StateDB) error
 
 	// IsSysTransaction checks whether a specific transaction is a system transaction.
-	IsSysTransaction(tx *types.Transaction, header *types.Header) (bool, error)
+	IsSysTransaction(sender common.Address, tx *types.Transaction, header *types.Header) (bool, error)
 
 	// CanCreate determines where a given address can create a new contract.
 	CanCreate(state StateReader, addr common.Address, height *big.Int) bool
 
 	// ValidateTx do a consensus-related validation on the given transaction at the given header and state.
-	ValidateTx(tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
+	ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
+
+	// CreateEvmExtraValidator returns a EvmExtraValidator if necessary.
+	CreateEvmExtraValidator(header *types.Header, parentState *state.StateDB) types.EvmExtraValidator
+
+	//Methods for debug trace
+
+	// ApplySysTx applies a system-transaction using a given evm,
+	// the main purpose of this method is for tracing a system-transaction.
+	ApplySysTx(evm *vm.EVM, state *state.StateDB, txIndex int, sender common.Address, tx *types.Transaction) (ret []byte, vmerr error, err error)
 }
 
 type StateReader interface {

@@ -68,11 +68,11 @@ func TestBlockGasLimits(t *testing.T) {
 		ok        bool
 	}{
 		// Transitions from non-london to london
-		{10000000, 4, 20000000, true},  // No change
-		{10000000, 4, 20019530, true},  // Upper limit
-		{10000000, 4, 20019531, false}, // Upper +1
-		{10000000, 4, 19980470, true},  // Lower limit
-		{10000000, 4, 19980469, false}, // Lower limit -1
+		{10000000, 4, 10000000, true},  // No change
+		{10000000, 4, 10009764, true},  // Upper limit
+		{10000000, 4, 10009765, false}, // Upper +1
+		{10000000, 4, 9990236, true},   // Lower limit
+		{10000000, 4, 9990235, false},  // Lower limit -1
 		// London to London
 		{20000000, 5, 20000000, true},
 		{20000000, 5, 20019530, true},  // Upper limit
@@ -93,7 +93,7 @@ func TestBlockGasLimits(t *testing.T) {
 		header := &types.Header{
 			GasUsed:  tc.gasLimit / 2,
 			GasLimit: tc.gasLimit,
-			BaseFee:  initial,
+			BaseFee:  common.Big0,
 			Number:   big.NewInt(tc.pNum + 1),
 		}
 		err := VerifyEip1559Header(config(), parent, header)
@@ -114,9 +114,9 @@ func TestCalcBaseFee(t *testing.T) {
 		parentGasUsed   uint64
 		expectedBaseFee int64
 	}{
-		{params.InitialBaseFee, 20000000, 10000000, params.InitialBaseFee}, // usage == target
-		{params.InitialBaseFee, 20000000, 9000000, 987500000},              // usage below target
-		{params.InitialBaseFee, 20000000, 11000000, 1012500000},            // usage above target
+		{params.InitialBaseFee, 20000000, 10000000, 0}, // usage == target
+		{params.InitialBaseFee, 20000000, 9000000, 0},  // usage below target
+		{params.InitialBaseFee, 20000000, 11000000, 0}, // usage above target
 	}
 	for i, test := range tests {
 		parent := &types.Header{

@@ -19,7 +19,6 @@ package miner
 import (
 	"bytes"
 	"errors"
-	"github.com/ethereum/go-ethereum/consensus/misc"
 	"math/big"
 	"strconv"
 	"sync"
@@ -29,6 +28,7 @@ import (
 	mapset "github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -92,6 +92,8 @@ type environment struct {
 	header   *types.Header
 	txs      []*types.Transaction
 	receipts []*types.Receipt
+
+	extraValidator types.EvmExtraValidator
 }
 
 // task contains all information for consensus engine sealing and result submitting.
@@ -760,7 +762,7 @@ func (w *worker) updateSnapshot() {
 func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address) ([]*types.Log, error) {
 	snap := w.current.state.Snapshot()
 
-	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig())
+	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig(), w.current.extraValidator)
 	if err != nil {
 		w.current.state.RevertToSnapshot(snap)
 		return nil, err
@@ -830,7 +832,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		}
 		// consensus related validation
 		if w.isPoSA {
-			err := w.posa.ValidateTx(tx, w.current.header, w.current.state)
+			err := w.posa.ValidateTx(from, tx, w.current.header, w.current.state)
 			if err != nil {
 				log.Trace("Ignoring consensus invalid transaction", "hash", tx.Hash().String(), "from", from.String(), "to", tx.To(), "err", err)
 				txs.Pop()
@@ -921,10 +923,8 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// Set baseFee and GasLimit if we are on an EIP-1559 chain
 	if w.chainConfig.IsLondon(header.Number) {
 		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent.Header())
-		if !w.chainConfig.IsLondon(parent.Number()) {
-			parentGasLimit := parent.GasLimit() * params.ElasticityMultiplier
-			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
-		}
+		parentGasLimit := parent.GasLimit()
+		header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {
@@ -964,6 +964,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			log.Error("Failed to apply system contract upgrade", "err", err)
 			return
 		}
+		env.extraValidator = w.posa.CreateEvmExtraValidator(header, env.state)
 	}
 	// Accumulate the uncles for the current block
 	uncles := make([]*types.Header, 0, 2)

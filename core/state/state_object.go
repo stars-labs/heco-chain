@@ -432,7 +432,14 @@ func (s *stateObject) AddBalance(amount *big.Int) {
 // SubBalance removes amount from s's balance.
 // It is used to remove funds from the origin account of a transfer.
 func (s *stateObject) SubBalance(amount *big.Int) {
+	// We must check emptiness for the objects such that the account
+	// clearing (0,0,0 objects) can take effect.
+	// It may happen because the Congress engine will interact with some system-contract by evm Call,
+	// and the `from` account may be empty.
 	if amount.Sign() == 0 {
+		if s.empty() {
+			s.touch()
+		}
 		return
 	}
 	s.SetBalance(new(big.Int).Sub(s.Balance(), amount))
