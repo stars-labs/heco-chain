@@ -586,7 +586,7 @@ func (s *StateDB) preloadAccountFromSnap(addr common.Address) *stateObject {
 		if acc == nil {
 			return nil
 		}
-		data := &Account{
+		data := &types.StateAccount{
 			Nonce:    acc.Nonce,
 			Balance:  acc.Balance,
 			CodeHash: acc.CodeHash,
@@ -614,7 +614,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	}
 	// If no live objects are available, attempt to use snapshots
 	var (
-		data *Account
+		data *types.StateAccount
 		err  error
 	)
 	if s.snap != nil {
@@ -626,7 +626,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			if acc == nil {
 				return nil
 			}
-			data = &Account{
+			data = &types.StateAccount{
 				Nonce:    acc.Nonce,
 				Balance:  acc.Balance,
 				CodeHash: acc.CodeHash,
@@ -653,7 +653,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 		if len(enc) == 0 {
 			return nil
 		}
-		data = new(Account)
+		data = new(types.StateAccount)
 		if err := rlp.DecodeBytes(enc, data); err != nil {
 			log.Error("Failed to decode state object", "addr", addr, "err", err)
 			return nil
@@ -690,7 +690,7 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 			s.snapDestructs[prev.addrHash] = struct{}{}
 		}
 	}
-	newobj = newObject(s, addr, Account{})
+	newobj = newObject(s, addr, types.StateAccount{})
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
 	} else {
@@ -1061,7 +1061,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	}
 	// The onleaf func is called _serially_, so we can reuse the same account
 	// for unmarshalling every time.
-	var account Account
+	var account types.StateAccount
 	root, accountCommitted, err := s.trie.Commit(func(_ [][]byte, _ []byte, leaf []byte, parent common.Hash) error {
 		if err := rlp.DecodeBytes(leaf, &account); err != nil {
 			return nil
@@ -1230,14 +1230,17 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 	go func(s *StateDB) {
 		defer s.db.TrieDB().FlushLatch.Done()
 		// Commit objects to the trie, measuring the elapsed time
+		var storageCommitted int
 		for addr := range s.stateObjectsDirty {
 			if obj := s.stateObjects[addr]; !obj.deleted {
 
 				// Write any storage changes in the state object to its storage trie
-				if err := obj.CommitTrie(s.db); err != nil {
+				committed, err := obj.CommitTrie(s.db)
+				if err != nil {
 					log.Crit("Aync commit storage trie error", "addr", addr, "err", err)
 					return
 				}
+				storageCommitted += committed
 			}
 		}
 		if len(s.stateObjectsDirty) > 0 {
@@ -1251,9 +1254,9 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 		}
 		// The onleaf func is called _serially_, so we can reuse the same account
 		// for unmarshalling every time.
-		var account Account
+		var account types.StateAccount
 		accountNum := 0
-		commitRoot, err := s.trie.Commit(func(_ [][]byte, _ []byte, leaf []byte, parent common.Hash) error {
+		commitRoot, accountCommitted, err := s.trie.Commit(func(_ [][]byte, _ []byte, leaf []byte, parent common.Hash) error {
 			accountNum++
 			if err := rlp.DecodeBytes(leaf, &account); err != nil {
 				return nil
@@ -1265,6 +1268,15 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 		})
 		if metrics.EnabledExpensive {
 			s.AccountCommits += time.Since(start)
+
+			accountUpdatedMeter.Mark(int64(s.AccountUpdated))
+			storageUpdatedMeter.Mark(int64(s.StorageUpdated))
+			accountDeletedMeter.Mark(int64(s.AccountDeleted))
+			storageDeletedMeter.Mark(int64(s.StorageDeleted))
+			accountCommittedMeter.Mark(int64(accountCommitted))
+			storageCommittedMeter.Mark(int64(storageCommitted))
+			s.AccountUpdated, s.AccountDeleted = 0, 0
+			s.StorageUpdated, s.StorageDeleted = 0, 0
 		}
 		if err == nil {
 			afterCommit(commitRoot)
