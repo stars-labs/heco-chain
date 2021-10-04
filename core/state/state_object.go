@@ -237,7 +237,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		enc, err = s.db.snap.Storage(s.addrHash, crypto.HashDataWithCache(nil, key[:]))
 	}
-	// If snapshot unavailable or reading from it failed, load from the database
+	// If the snapshot is unavailable or reading from it fails, load from the database.
 	if s.db.snap == nil || err != nil {
 		if meter != nil {
 			// If we already spent time checking the snapshot, account for it
