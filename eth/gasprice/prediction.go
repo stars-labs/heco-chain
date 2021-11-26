@@ -140,11 +140,7 @@ func (p *Prediction) loop() {
 }
 
 func (p *Prediction) update() {
-	txs, err := p.pool.Pending(true)
-	if err != nil {
-		log.Error("failed to get pending transactions", "err", err)
-		return
-	}
+	txs := p.pool.Pending(true)
 	byprice := make(TxByPrice, 0, len(txs))
 	for _, ts := range txs {
 		byprice = append(byprice, ts...)

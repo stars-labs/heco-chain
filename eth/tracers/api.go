@@ -986,7 +986,7 @@ func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Contex
 func (api *API) tracePoSASysTx(ctx context.Context, sender common.Address, tx *types.Transaction, txctx *Context, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
-		tracer vm.Tracer
+		tracer vm.EVMLogger
 		err    error
 	)
 	switch {
@@ -1007,7 +1007,7 @@ func (api *API) tracePoSASysTx(ctx context.Context, sender common.Address, tx *t
 		go func() {
 			<-deadlineCtx.Done()
 			if deadlineCtx.Err() == context.DeadlineExceeded {
-				tracer.(*Tracer).Stop(errors.New("execution timeout"))
+				tracer.(Tracer).Stop(errors.New("execution timeout"))
 			}
 		}()
 		defer cancel()
@@ -1032,7 +1032,7 @@ func (api *API) tracePoSASysTx(ctx context.Context, sender common.Address, tx *t
 	})
 }
 
-func (api *API) traceResult(tracer vm.Tracer, result *core.ExecutionResult) (interface{}, error) {
+func (api *API) traceResult(tracer vm.EVMLogger, result *core.ExecutionResult) (interface{}, error) {
 	// Depending on the tracer type, format and return the output.
 	switch tracer := tracer.(type) {
 	case *vm.StructLogger:

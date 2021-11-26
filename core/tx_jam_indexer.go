@@ -114,7 +114,7 @@ func (indexer *txJamIndexer) updateLoop() {
 			indexer.head = h
 		case <-tick.C:
 			d := indexer.undCounter.Sum()
-			pendings, _ := indexer.pool.Pending(true)
+			pendings := indexer.pool.Pending(true)
 			if d == 0 && len(pendings) == 0 {
 				break
 			}

@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -849,7 +850,7 @@ func (s *PublicBlockChainAPI) getSysTransactions(block *types.Block, posa consen
 	for i, tx := range txs {
 		sender, _ := types.Sender(signer, tx)
 		if yes, _ := posa.IsSysTransaction(sender, tx, header); yes {
-			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i), nil))
+			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i), nil, s.b.ChainConfig()))
 		}
 	}
 	return transactions, nil
