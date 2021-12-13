@@ -87,12 +87,52 @@ func TestCheckCompatible(t *testing.T) {
 				RewindTo:     30,
 			},
 		},
+		{
+			stored:  AllCongressProtocolChanges,
+			new:     AllCongressProtocolChanges,
+			head:    uint64(0),
+			wantErr: nil,
+		},
+		{
+			stored:  AllCongressProtocolChanges,
+			new:     AllCongressProtocolChanges,
+			head:    uint64(100),
+			wantErr: nil,
+		},
 	}
 
 	for _, test := range tests {
 		err := test.stored.CheckCompatible(test.new, test.head)
 		if !reflect.DeepEqual(err, test.wantErr) {
 			t.Errorf("error mismatch:\nstored: %v\nnew: %v\nhead: %v\nerr: %v\nwant: %v", test.stored, test.new, test.head, err, test.wantErr)
+		}
+	}
+}
+
+func TestCheckConfigForkOrder(t *testing.T) {
+	type test struct {
+		new   *ChainConfig
+		isErr bool
+	}
+	tests := []test{
+		{new: MainnetChainConfig},
+		{new: TestnetChainConfig},
+		{new: AllEthashProtocolChanges},
+		{new: AllCongressProtocolChanges},
+		{new: AllCliqueProtocolChanges},
+		{new: TestChainConfig},
+		{new: &ChainConfig{RedCoastBlock: big.NewInt(0)}, isErr: true},
+		{new: &ChainConfig{RedCoastBlock: big.NewInt(1)}, isErr: true},
+		{new: &ChainConfig{SophonBlock: big.NewInt(3)}, isErr: true},
+		{new: &ChainConfig{RedCoastBlock: big.NewInt(2), SophonBlock: big.NewInt(2)}, isErr: true},
+	}
+	for _, tc := range tests {
+		err := tc.new.CheckConfigForkOrder()
+		if !tc.isErr && err != nil {
+			t.Error(err)
+		}
+		if tc.isErr && err == nil {
+			t.Errorf("can't checkout wrong config: %v\n", tc.new)
 		}
 	}
 }
