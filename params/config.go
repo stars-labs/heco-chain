@@ -125,6 +125,8 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
 
+	AllCongressProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, big.NewInt(2), big.NewInt(3), nil, nil, &CongressConfig{Period: 0, Epoch: 30000}}
+
 	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
@@ -210,8 +212,8 @@ type ChainConfig struct {
 	// the network that triggers the consensus upgrade.
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
-	RedCoastBlock *big.Int `json:"redCoastBlock,omitempty"` // RedCoast switch block (nil = no fork, 0 = already activated)
-	SophonBlock   *big.Int `json:"sophonBlock,omitempty"`
+	RedCoastBlock *big.Int `json:"redCoastBlock,omitempty"` // RedCoast switch block (nil = no fork, set value ≥ 2 to activate it)
+	SophonBlock   *big.Int `json:"sophonBlock,omitempty"`   // Sophon switch block (nil = no fork, set > RedCoastBlock to activate it)
 
 	// Various consensus engines
 	Ethash   *EthashConfig   `json:"ethash,omitempty"`
@@ -264,7 +266,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, RedCoastBlock: %v, Berlin: %v, London: %v, Arrow Glacier: %v, Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, RedCoastBlock: %v, Berlin: %v, London: %v, Sophon: %v, Engine: %v}",
 		c.ChainID,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -280,7 +282,7 @@ func (c *ChainConfig) String() string {
 		c.RedCoastBlock,
 		c.BerlinBlock,
 		c.LondonBlock,
-		c.ArrowGlacierBlock,
+		c.SophonBlock,
 		engine,
 	)
 }
@@ -395,6 +397,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		name     string
 		block    *big.Int
 		optional bool // if true, the fork may be nil and next fork is still allowed
+		minValue *big.Int
 	}
 	var lastFork fork
 	for _, cur := range []fork{
@@ -408,12 +411,39 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		{name: "petersburgBlock", block: c.PetersburgBlock},
 		{name: "istanbulBlock", block: c.IstanbulBlock},
 		{name: "muirGlacierBlock", block: c.MuirGlacierBlock, optional: true},
-		{name: "redCoastBlock", block: c.RedCoastBlock, optional: true},
 		{name: "berlinBlock", block: c.BerlinBlock},
 		{name: "londonBlock", block: c.LondonBlock},
-		{name: "sophonBlock", block: c.SophonBlock},
-		{name: "arrowGlacierBlock", block: c.ArrowGlacierBlock, optional: true},
 	} {
+		if lastFork.name != "" {
+			// Next one must be higher or the same number
+			if lastFork.block == nil && cur.block != nil {
+				return fmt.Errorf("unsupported fork ordering: %v not enabled, but %v enabled at %v",
+					lastFork.name, cur.name, cur.block)
+			}
+			if lastFork.block != nil && cur.block != nil {
+				if lastFork.block.Cmp(cur.block) > 0 {
+					return fmt.Errorf("unsupported fork ordering: %v enabled at %v, but %v enabled at %v",
+						lastFork.name, lastFork.block, cur.name, cur.block)
+				}
+			}
+		}
+		// If it was optional and not set, then ignore it
+		if !cur.optional || cur.block != nil {
+			lastFork = cur
+		}
+	}
+	// congress fork
+	lastFork = fork{}
+	for _, cur := range []fork{
+		{name: "redCoastBlock", block: c.RedCoastBlock, minValue: big.NewInt(2)},
+		{name: "sophonBlock", block: c.SophonBlock},
+	} {
+		// check minimal fork block
+		if cur.block != nil && cur.minValue != nil {
+			if cur.block.Cmp(cur.minValue) < 0 {
+				return fmt.Errorf("unsupported fork ordering: %v enabled at %v, but it must greater than %v ", cur.name, cur.block, cur.minValue)
+			}
+		}
 		if lastFork.name != "" {
 			// Next one must be higher number
 			if lastFork.block == nil && cur.block != nil {
@@ -421,7 +451,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 					lastFork.name, cur.name, cur.block)
 			}
 			if lastFork.block != nil && cur.block != nil {
-				if lastFork.block.Cmp(cur.block) > 0 {
+				if lastFork.block.Cmp(cur.block) >= 0 {
 					return fmt.Errorf("unsupported fork ordering: %v enabled at %v, but %v enabled at %v",
 						lastFork.name, lastFork.block, cur.name, cur.block)
 				}

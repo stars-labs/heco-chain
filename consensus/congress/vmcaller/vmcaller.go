@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"math/big"
 )
@@ -19,7 +20,9 @@ func ExecuteMsg(msg core.Message, state *state.StateDB, header *types.Header, ch
 	// Finalise the statedb so any changes can take effect,
 	// and especially if the `from` account is empty, it can be finally deleted.
 	state.Finalise(true)
-
+	if err != nil {
+		log.Error("ExecuteMsg failed", "err", err, "ret", string(ret))
+	}
 	return ret, err
 }
 
