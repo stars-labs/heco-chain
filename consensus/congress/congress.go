@@ -331,7 +331,7 @@ func (c *Congress) verifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 	// Ensure that the validator bytes length is valid
 	if isEpoch && validatorsBytes%common.AddressLength != 0 {
-		return errExtraValidators
+		return errInvalidCheckpointValidators
 	}
 
 	// Ensure that the mix digest is zero as we don't have fork protection currently
