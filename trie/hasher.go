@@ -76,6 +76,9 @@ func returnHasherToPool(h *hasher) {
 func (h *hasher) hash(n node, force bool) (hashed node, cached node) {
 	// Return the cached hash if it's available
 	if hash, _ := n.cache(); hash != nil {
+		if h.dirties != nil && !h.dirties.Contains(hash) {
+			h.dirties.Put(hash, n)
+		}
 		return hash, n
 	}
 	// Trie not processed yet, walk the children

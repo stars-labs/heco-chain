@@ -121,6 +121,14 @@ func (c *HashCache) PutIfAbsent(key []byte, value node) {
 	}
 }
 
+// Contains checks whether the key was cached
+func (c *HashCache) Contains(key []byte) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	_, exist := c.inner[common.BytesToHash(key)]
+	return exist
+}
+
 // Get reads value of given key from cache with lock protection
 func (c *HashCache) Get(key common.Hash) (node, bool) {
 	c.lock.RLock()
